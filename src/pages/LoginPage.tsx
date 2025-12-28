@@ -5,7 +5,6 @@ import CardHeader from '@mui/material/CardHeader';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import styled from '@emotion/styled';
 
 import { CalculatorStore } from '../utils/store';

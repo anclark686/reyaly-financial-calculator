@@ -1,73 +1,82 @@
-# React + TypeScript + Vite
+# Reyaly Financial Calculator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern financial calculator built with React, TypeScript, and Firebase for managing bank accounts and expenses.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Bank Account Management** - Create, edit, and delete bank accounts with custom colors
+- **Expense Tracking** - Add recurring and one-time expenses
+- **Account Assignment** - Assign expenses to specific bank accounts
+- **Dynamic Balance Calculation** - Real-time balance updates based on assigned expenses
+- **Visual Indicators** - See which expenses are accounted for across accounts
+- **Authentication** - Email/password and Google Sign-In support
+- **Persistent Sessions** - Stay logged in across browser refreshes
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React 19, TypeScript, Material-UI
+- **Backend**: Firebase (Firestore, Authentication)
+- **Build Tool**: Vite
+- **State Management**: react-junco
+- **Styling**: Material-UI, Emotion
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
+- Node.js (18 or higher)
+- npm or bun
+- Firebase project with Authentication and Firestore enabled
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Installation
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. Clone the repository
+```bash
+git clone [https://github.com/anclark686/reyaly-financial-calculator.git](https://github.com/anclark686/reyaly-financial-calculator.git)
+cd reyaly-financial-calculator
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+2. Install dependencies
+```bash
+bun install
+# or
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+3. Configure Firebase
+ - Create a Firebase project at https://console.firebase.google.com
+ - Enable Authentication (Email and Google providers)
+ - Enable Firestore
+ - Copy your Firebase config to src/firebase.ts
+ - Start the development server
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+4. Start the development server
+```bash
+bun run dev
+# or
+npm run dev
+```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Usage
+1. Sign Up/In - Create an account or use Google Sign-In
+2. Add Bank Accounts - Create accounts with starting balances and colors
+3. Add Expenses - Create recurring or one-time expenses
+4. Assign Expenses - Link expenses to bank accounts
+5. Track Balances - View real-time account balances
+
+## Firebase Setup
+
+### Authentication
+ - Enable Email/Password provider
+ - Enable Google provider
+ - Configure authorized domains
+
+### Firestore Rules
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /userData/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
 ```
