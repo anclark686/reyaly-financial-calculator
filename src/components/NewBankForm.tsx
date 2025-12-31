@@ -25,43 +25,35 @@ function NewBankForm({ store }: { store: CalculatorStore }) {
   const { selectedBankAccount } = store.getState();
   const [name, setName] = useState(selectedBankAccount?.name || "");
   const [startingBalance, setStartingBalance] = useState(
-    selectedBankAccount?.startingBalance ?? 0
-  );
-  const [currentBalance, setCurrentBalance] = useState(
-    selectedBankAccount?.currentBalance ?? 0
+    selectedBankAccount?.startingBalance || parseFloat("")
   );
   const [color, setColor] = useState(selectedBankAccount?.color || "#000000");
   const [showColorPicker, setShowColorPicker] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!name || startingBalance === undefined || startingBalance < 0) {
+      alert("Please enter a valid account name and starting balance (must be positive)");
+      return;
+    }
+    
     const bankAccountData = {
       name,
       startingBalance: parseFloat(startingBalance.toString()),
-      currentBalance: parseFloat(currentBalance.toString()),
       color,
     };
-    console.log("New bank account:", bankAccountData);
+
     if (selectedBankAccount) {
       store.updateBankAccount(selectedBankAccount.id, bankAccountData);
-      console.log(
-        "Updating bank account:",
-        selectedBankAccount.id,
-        bankAccountData
-      );
     } else {
-      // Add new bank account
-      console.log("Adding new bank account:", bankAccountData);
       store.addBankAccountToUser(bankAccountData);
     }
 
-    // Reset form after submission
     setName("");
     setStartingBalance(0);
-    setCurrentBalance(0);
     setColor("#fff");
 
-    // Close the form
     store.setNewBankAccountFormOpen(false);
   };
 
@@ -76,6 +68,7 @@ function NewBankForm({ store }: { store: CalculatorStore }) {
           variant="outlined"
           fullWidth
           margin="normal"
+          focused
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -85,17 +78,9 @@ function NewBankForm({ store }: { store: CalculatorStore }) {
           fullWidth
           margin="normal"
           type="number"
+          focused
           value={startingBalance}
           onChange={(e) => setStartingBalance(parseFloat(e.target.value) || 0)}
-        />
-        <TextField
-          label="Current Balance"
-          variant="outlined"
-          fullWidth
-          margin="normal"
-          type="number"
-          value={currentBalance}
-          onChange={(e) => setCurrentBalance(parseFloat(e.target.value) || 0)}
         />
 
         <ColorLabel>Color: {color}</ColorLabel>

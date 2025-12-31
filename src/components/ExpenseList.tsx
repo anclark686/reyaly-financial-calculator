@@ -16,8 +16,13 @@ import { MoreHoriz, AccountBalance } from "@mui/icons-material";
 import styled from "@emotion/styled";
 
 import NewExpenseForm from "./NewExpenseForm";
-import { CalculatorStore } from "../utils/store";
 import { formatDate } from "../utils/helpers";
+
+import type {
+  MainComponentProps,
+  Expense,
+  PayPeriodExpense,
+} from "../utils/types";
 
 const HeaderRow = styled(TableRow)`
   background-color: #f5f5f5;
@@ -31,12 +36,30 @@ const StyledButtonContainer = styled.div`
   margin: 1.5rem auto;
 `;
 
-function ExpenseList({ store }: { store: CalculatorStore }) {
-  const { newExpenseFormOpen } = store.getState();
+function ExpenseList({ store, master }: MainComponentProps) {
+  const { newExpenseFormOpen, masterExpenses, payPeriodExpenses } =
+    store.getState();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(
     null
   );
+
+  const expenseArray = master ? masterExpenses?.filter((expense) => expense.frequency !== 'one-time') : payPeriodExpenses;
+
+  const getDisplayDate = (expense: Expense | PayPeriodExpense) => {
+    if (master) {
+      const masterExpense = expense as Expense;
+      return formatDate(masterExpense.nextDueDate || masterExpense.dueDate);
+    } else {
+      const payPeriodExpense = expense as PayPeriodExpense;
+      console.log("Pay period expense:", payPeriodExpense);
+      console.log(
+        "Pay period expense nextDueDate:",
+        payPeriodExpense.nextDueDate
+      );
+      return formatDate(payPeriodExpense.nextDueDate);
+    }
+  };
 
   const handleMenuClick = (
     event: React.MouseEvent<HTMLElement>,
@@ -60,12 +83,22 @@ function ExpenseList({ store }: { store: CalculatorStore }) {
 
   const handleEditExpense = () => {
     if (selectedExpenseId) {
-      const expense = store
-        .getState()
-        .expenses?.find((e) => e.id === selectedExpenseId);
-      if (expense) {
-        store.setSelectedExpense(expense);
-        store.setNewExpenseFormOpen(true);
+      if (master) {
+        const expense = masterExpenses?.find((e) => e.id === selectedExpenseId);
+
+        if (expense) {
+          store.setSelectedExpense(expense ?? null);
+          store.setNewExpenseFormOpen(true);
+        }
+      } else {
+        const payPeriodExpense = payPeriodExpenses?.find(
+          (e) => e.id === selectedExpenseId
+        );
+
+        if (payPeriodExpense) {
+          store.setSelectedPayPeriodExpense(payPeriodExpense ?? null);
+          store.setNewExpenseFormOpen(true);
+        }
       }
     }
     handleMenuClose();
@@ -80,62 +113,77 @@ function ExpenseList({ store }: { store: CalculatorStore }) {
               <TableCell>Expense Name</TableCell>
               <TableCell>Amount</TableCell>
               <TableCell>Next Due Date</TableCell>
-              <TableCell>Frequency</TableCell>
-              <TableCell>Accounted For</TableCell>
+              {master && <TableCell>Frequency</TableCell>}
+              {!master && <TableCell>Accounted For</TableCell>}
               <TableCell>Actions</TableCell>
             </HeaderRow>
           </TableHead>
           <TableBody>
-            {store.getState().expenses?.map((expense) => {
-              const assignedAccounts = store.getBankAccountsForExpense(
-                expense.id
-              );
-              const isAccountedFor = assignedAccounts.length > 0;
+            {expenseArray &&
+              expenseArray
+                .sort(
+                  (a, b) =>
+                    new Date(a.nextDueDate!).getTime() -
+                    new Date(b.nextDueDate!).getTime()
+                )
+                .map((expense) => {
+                  const assignedAccounts = store.getBankAccountsForExpense(
+                    expense.id
+                  );
+                  const isAccountedFor = assignedAccounts.length > 0;
 
-              return (
-                <TableRow key={expense.id}>
-                  <TableCell>{expense.name}</TableCell>
-                  <TableCell>${expense.amount.toFixed(2)}</TableCell>
-                  <TableCell>
-                    {formatDate(expense.nextDueDate || expense.dueDate)}
-                  </TableCell>
-                  <TableCell>{expense.frequency}</TableCell>
-                  <TableCell>
-                    {isAccountedFor ? (
-                      <Tooltip
-                        title={`Assigned to: ${assignedAccounts
-                          .map((acc) => acc.name)
-                          .join(", ")}`}
-                        arrow
-                      >
-                        <Chip
-                          icon={<AccountBalance />}
-                          label={`${assignedAccounts.length} Account(s)`}
-                          color="success"
+                  return (
+                    <TableRow key={expense.id}>
+                      <TableCell>{expense.name}</TableCell>
+                      {expense.type === "withdrawal" ? (
+                        <TableCell style={{ color: "red" }}>
+                          -${Math.abs(expense.amount).toFixed(2)}
+                        </TableCell>
+                      ) : (
+                        <TableCell style={{ color: "green" }}>
+                          ${expense.amount.toFixed(2)}
+                        </TableCell>
+                      )}
+                      <TableCell>{getDisplayDate(expense)}</TableCell>
+                      {master && <TableCell>{expense.frequency}</TableCell>}
+                      {!master && (
+                        <TableCell>
+                          {isAccountedFor ? (
+                            <Tooltip
+                              title={`Assigned to: ${assignedAccounts
+                                .map((acc) => acc.name)
+                                .join(", ")}`}
+                              arrow
+                            >
+                              <Chip
+                                icon={<AccountBalance />}
+                                label={`${assignedAccounts.length} Account(s)`}
+                                color="success"
+                                size="small"
+                                variant="outlined"
+                              />
+                            </Tooltip>
+                          ) : (
+                            <Chip
+                              label="Unassigned"
+                              color="default"
+                              size="small"
+                              variant="outlined"
+                            />
+                          )}
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <IconButton
+                          onClick={(e) => handleMenuClick(e, expense.id)}
                           size="small"
-                          variant="outlined"
-                        />
-                      </Tooltip>
-                    ) : (
-                      <Chip
-                        label="Unassigned"
-                        color="default"
-                        size="small"
-                        variant="outlined"
-                      />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <IconButton
-                      onClick={(e) => handleMenuClick(e, expense.id)}
-                      size="small"
-                    >
-                      <MoreHoriz />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                        >
+                          <MoreHoriz />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
           </TableBody>
         </Table>
       </TableContainer>
@@ -149,17 +197,29 @@ function ExpenseList({ store }: { store: CalculatorStore }) {
         <MenuItem onClick={handleEditExpense}>Edit Expense</MenuItem>
       </Menu>
 
-      {newExpenseFormOpen && <NewExpenseForm store={store} />}
+      {newExpenseFormOpen && <NewExpenseForm store={store} master={master} />}
 
-      <StyledButtonContainer>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => store.setNewExpenseFormOpen(!newExpenseFormOpen)}
-        >
-          {newExpenseFormOpen ? "Cancel" : "Add New Expense"}
-        </Button>
-      </StyledButtonContainer>
+      {master ? (
+        <StyledButtonContainer>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => store.setNewExpenseFormOpen(!newExpenseFormOpen)}
+          >
+            {newExpenseFormOpen ? "Cancel" : "Add New Expense"}
+          </Button>
+        </StyledButtonContainer>
+      ) : (
+        <StyledButtonContainer>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => store.setNewExpenseFormOpen(!newExpenseFormOpen)}
+          >
+            {newExpenseFormOpen ? "Cancel" : "Add One-Time Expense"}
+          </Button>
+        </StyledButtonContainer>
+      )}
     </div>
   );
 }

@@ -31,7 +31,7 @@ const style = {
 function ExpensesModal({ open, onClose, store }: ExpensesModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
-  const { expenses, selectedBankAccount } = store.getState();
+  const { payPeriodExpenses, selectedBankAccount } = store.getState();
 
   const fullClose = () => {
     setIsEditing(false);
@@ -79,10 +79,10 @@ function ExpensesModal({ open, onClose, store }: ExpensesModalProps) {
         </Typography>
         <Typography id="modal-modal-description" sx={{ mt: 2 }}>
           {selectedBankAccount ? (
-            <div>
+            <span>
               {bankAccountExpenses.length > 0 ? (
                 bankAccountExpenses.map((expense) => (
-                  <div
+                  <span
                     key={expense.id}
                     style={{
                       display: "flex",
@@ -103,12 +103,12 @@ function ExpensesModal({ open, onClose, store }: ExpensesModalProps) {
                     >
                       Remove
                     </Button>
-                  </div>
+                  </span>
                 ))
               ) : (
                 <p>No expenses assigned to this account</p>
               )}
-            </div>
+            </span>
           ) : (
             <p>No account selected</p>
           )}
@@ -140,8 +140,8 @@ function ExpensesModal({ open, onClose, store }: ExpensesModalProps) {
         {isEditing && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="body1">Add Existing Expense</Typography>
-            {expenses &&
-              expenses.map((expense) => {
+            {payPeriodExpenses &&
+              payPeriodExpenses.map((expense) => {
                 const assignedAccounts = store.getBankAccountsForExpense(
                   expense.id
                 );

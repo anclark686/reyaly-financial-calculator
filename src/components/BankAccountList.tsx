@@ -10,13 +10,15 @@ import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import IconButton from "@mui/material/IconButton";
+import Typography from "@mui/material/Typography";
 import { MoreHoriz } from "@mui/icons-material";
 import styled from "@emotion/styled";
 
 import NewBankForm from "./NewBankForm";
 import ExpensesModal from "./ExpensesModal";
 import { getContrastColor } from "../utils/helpers";
-import { CalculatorStore } from "../utils/store";
+
+import type { MainComponentProps } from "../utils/types";
 
 const HeaderRow = styled(TableRow)`
   background-color: #f5f5f5;
@@ -32,13 +34,16 @@ const StyledButtonContainer = styled.div`
   margin: 1.5rem auto;
 `;
 
-function BankAccountList({ store }: { store: CalculatorStore }) {
-  const { newBankAccountFormOpen } = store.getState();
+function BankAccountList({ store, master }: MainComponentProps) {
+  const { newBankAccountFormOpen, masterBankAccounts, payPeriodBankAccounts } =
+    store.getState();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null
   );
   const [modalOpen, setModalOpen] = useState(false);
+
+  const bankAccountArray = master ? masterBankAccounts : payPeriodBankAccounts;
 
   const handleMenuClick = (
     event: React.MouseEvent<HTMLElement>,
@@ -55,32 +60,52 @@ function BankAccountList({ store }: { store: CalculatorStore }) {
 
   const handleViewExpenses = () => {
     if (selectedAccountId) {
-      const account = store
-        .getState()
-        .bankAccounts?.find((a) => a.id === selectedAccountId);
-      if (account) {
-        store.setSelectedBankAccount(account);
-        setModalOpen(true);
+      if (master) {
+        const account = masterBankAccounts?.find(
+          (a) => a.id === selectedAccountId
+        );
+        if (account) {
+          store.setSelectedBankAccount(account);
+          setModalOpen(true);
+        }
+      } else {
+        const payPeriodAccount = payPeriodBankAccounts?.find(
+          (a) => a.id === selectedAccountId
+        );
+        if (payPeriodAccount) {
+          store.setSelectedPayPeriodBankAccount(payPeriodAccount);
+          setModalOpen(true);
+        }
       }
     }
     handleMenuClose();
   };
 
-  const handleDeleteExpense = () => {
+  const handleDeleteBankAccount = () => {
     if (selectedAccountId) {
       store.deleteBankAccount(selectedAccountId);
     }
     handleMenuClose();
   };
 
-  const handleEditExpense = () => {
+  const handleEditBankAccount = () => {
     if (selectedAccountId) {
-      const account = store
-        .getState()
-        .bankAccounts?.find((a) => a.id === selectedAccountId);
-      if (account) {
-        store.setSelectedBankAccount(account);
-        store.setNewBankAccountFormOpen(true);
+      if (master) {
+        const account = masterBankAccounts?.find(
+          (a) => a.id === selectedAccountId
+        );
+        if (account) {
+          store.setSelectedBankAccount(account);
+          store.setNewBankAccountFormOpen(true);
+        }
+      } else {
+        const payPeriodAccount = payPeriodBankAccounts?.find(
+          (a) => a.id === selectedAccountId
+        );
+        if (payPeriodAccount) {
+          store.setSelectedPayPeriodBankAccount(payPeriodAccount);
+          store.setNewBankAccountFormOpen(true);
+        }
       }
     }
     handleMenuClose();
@@ -99,47 +124,54 @@ function BankAccountList({ store }: { store: CalculatorStore }) {
             </HeaderRow>
           </TableHead>
           <TableBody>
-            {store.getState().bankAccounts?.map((account) => (
-              <TableRow
-                key={account.id}
-                style={{
-                  backgroundColor: account.color || "inherit",
-                  color: getContrastColor(account.color || "#000000"),
-                }}
-              >
-                <TableCell
+            {bankAccountArray &&
+              bankAccountArray.map((account) => (
+                <TableRow
+                  key={account.id}
                   style={{
+                    backgroundColor: account.color || "inherit",
                     color: getContrastColor(account.color || "#000000"),
                   }}
                 >
-                  {account.name}
-                </TableCell>
-                <TableCell
-                  style={{
-                    color: getContrastColor(account.color || "#000000"),
-                  }}
-                >
-                  ${account.startingBalance.toFixed(2)}
-                </TableCell>
-                <TableCell
-                  style={{
-                    color: getContrastColor(account.color || "#000000"),
-                  }}
-                >
-                  ${store.getCurrentBalance(account.id).toFixed(2)}
-                </TableCell>
-                <TableCell>
-                  <IconButton
-                    aria-label="account actions"
-                    aria-controls="account-menu"
-                    aria-haspopup="true"
-                    onClick={(event) => handleMenuClick(event, account.id)}
+                  <TableCell
+                    style={{
+                      color: getContrastColor(account.color || "#000000"),
+                    }}
                   >
-                    <MoreHoriz />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
+                    <Typography variant="body2" fontWeight="bold">
+                      {account.name}
+                    </Typography>
+                  </TableCell>
+                  <TableCell
+                    style={{
+                      color: getContrastColor(account.color || "#000000"),
+                    }}
+                  >
+                    <Typography variant="body2" fontWeight="bold">
+                      ${account.startingBalance.toFixed(2)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell
+                    style={{
+                      color: getContrastColor(account.color || "#000000"),
+                    }}
+                  >
+                    <Typography variant="body2" fontWeight="bold">
+                      ${store.getCurrentBalance(account.id).toFixed(2)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      aria-label="account actions"
+                      aria-controls="account-menu"
+                      aria-haspopup="true"
+                      onClick={(event) => handleMenuClick(event, account.id)}
+                    >
+                      <MoreHoriz />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       </TableContainer>
@@ -149,24 +181,30 @@ function BankAccountList({ store }: { store: CalculatorStore }) {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={handleViewExpenses}>View Expenses</MenuItem>
-        <MenuItem onClick={handleDeleteExpense}>Delete Account</MenuItem>
-        <MenuItem onClick={handleEditExpense}>Edit Account</MenuItem>
+        {!master && (
+          <MenuItem onClick={handleViewExpenses}>View Expenses</MenuItem>
+        )}
+        <MenuItem onClick={handleDeleteBankAccount}>Delete Account</MenuItem>
+        <MenuItem onClick={handleEditBankAccount}>Edit Account</MenuItem>
       </Menu>
 
-      {newBankAccountFormOpen && <NewBankForm store={store} />}
+      {master && (
+        <>
+          {newBankAccountFormOpen && <NewBankForm store={store} />}
 
-      <StyledButtonContainer>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() =>
-            store.setNewBankAccountFormOpen(!newBankAccountFormOpen)
-          }
-        >
-          {newBankAccountFormOpen ? "Cancel" : "Add New Bank Account"}
-        </Button>
-      </StyledButtonContainer>
+          <StyledButtonContainer>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() =>
+                store.setNewBankAccountFormOpen(!newBankAccountFormOpen)
+              }
+            >
+              {newBankAccountFormOpen ? "Cancel" : "Add New Bank Account"}
+            </Button>
+          </StyledButtonContainer>
+        </>
+      )}
 
       <ExpensesModal
         open={modalOpen}

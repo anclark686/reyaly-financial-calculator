@@ -13,12 +13,29 @@ function App() {
     confirmPassword: "",
     user: null,
     loginError: null,
-    bankAccounts: null,
+    
+    // Master data (global across all periods)
+    masterBankAccounts: null,
+    masterExpenses: null,
+    payInfo: null,
+    
+    // Period-specific data
+    payPeriods: null,
+    currentPayPeriod: null,
+    payPeriodBankAccounts: null,
+    payPeriodExpenses: null,
+    
+    // UI state
     selectedBankAccount: null,
-    newBankAccountFormOpen: false,
-    expenses: null,
     selectedExpense: null,
+    selectedPayPeriodBankAccount: null,
+    selectedPayPeriodExpense: null,
+    newBankAccountFormOpen: false,
     newExpenseFormOpen: false,
+    
+    // Loading states
+    loading: false,
+    payPeriodLoading: false,
   });
   const { user } = store.getState();
 
@@ -28,8 +45,10 @@ function App() {
 
     // Load expenses and bank accounts when component mounts
     if (user) {
+      console.log("Loading data for user:", user.uid);
       store.getAllExpensesForUser();
       store.getAllBankAccountsForUser();
+      store.loadUserPayInfo();
     }
 
     // Cleanup auth listener on unmount

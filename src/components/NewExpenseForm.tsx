@@ -9,44 +9,53 @@ import FormControl from "@mui/material/FormControl";
 import Select from "@mui/material/Select";
 import styled from "@emotion/styled";
 
-import { CalculatorStore } from "../utils/store";
+import type { MainComponentProps } from "../utils/types";
 
 const FormContainer = styled(Card)`
   margin: 16px;
   padding: 16px;
   border: 1px solid #ddd;
   border-radius: 8px;
+
+  div[role="combobox"] {
+    text-align: left;
+  }
 `;
 
-function NewExpenseForm({ store }: { store: CalculatorStore }) {
+function NewExpenseForm({ store, master }: MainComponentProps) {
   const { selectedExpense } = store.getState();
   const [name, setName] = useState(selectedExpense?.name || "");
   const [amount, setAmount] = useState(
     selectedExpense?.amount.toString() || ""
   );
+  const [type, setType] = useState<"withdrawal" | "deposit">(
+    selectedExpense?.type || "withdrawal"
+  );
   const [dueDate, setDueDate] = useState(selectedExpense?.dueDate || "");
   const [frequency, setFrequency] = useState<
     "monthly" | "bi-weekly" | "every 30 days" | "one-time"
-  >(selectedExpense?.frequency || "monthly");
+  >(selectedExpense?.frequency || (master ? "monthly" : "one-time"));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Handle form submission
-    console.log({ name, amount, dueDate, frequency });
+    if (!name || !amount || !dueDate) {
+      alert("Please fill in all required fields");
+      return;
+    }
     const newExpenseData = {
       name,
-      amount: parseFloat(amount),
+      amount: type === "withdrawal" ? -parseFloat(amount) : parseFloat(amount),
       dueDate,
       frequency,
+      type,
     };
-    console.log("New expense:", newExpenseData);
-    // Call the store method to add the expense
+
     if (selectedExpense) {
       store.updateExpense(selectedExpense.id, newExpenseData);
     } else {
       store.addExpenseToUser(newExpenseData);
     }
-    // Reset form after submission
+
     setName("");
     setAmount("");
     setDueDate("");
@@ -62,41 +71,62 @@ function NewExpenseForm({ store }: { store: CalculatorStore }) {
           variant="outlined"
           fullWidth
           margin="normal"
+          focused
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
+
         <TextField
           label="Amount"
           variant="outlined"
           fullWidth
           margin="normal"
           type="number"
+          focused
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
+
+        <FormControl fullWidth margin="normal" focused>
+          <InputLabel>Type</InputLabel>
+          <Select
+            label="Type"
+            value={type}
+            onChange={(e) =>
+              setType(e.target.value as "withdrawal" | "deposit")
+            }
+          >
+            <MenuItem value="withdrawal">Withdrawal</MenuItem>
+            <MenuItem value="deposit">Deposit</MenuItem>
+          </Select>
+        </FormControl>
+
         <TextField
           label="Due Date"
           variant="outlined"
           fullWidth
           margin="normal"
           type="date"
+          focused
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
         />
 
-        <FormControl fullWidth margin="normal">
-          <InputLabel>Frequency</InputLabel>
-          <Select
-            label="Frequency"
-            value={frequency}
-            onChange={(e) => setFrequency(e.target.value)}
-          >
-            <MenuItem value="monthly">Monthly</MenuItem>
-            <MenuItem value="bi-weekly">Bi-Weekly</MenuItem>
-            <MenuItem value="every 30 days">Every 30 Days</MenuItem>
-            <MenuItem value="one-time">One-Time</MenuItem>
-          </Select>
-        </FormControl>
+        {master && (
+          <FormControl fullWidth margin="normal" focused>
+            <InputLabel>Frequency</InputLabel>
+            <Select
+              label="Frequency"
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value)}
+            >
+              <MenuItem value="monthly">Monthly</MenuItem>
+              <MenuItem value="bi-weekly">Bi-Weekly</MenuItem>
+              <MenuItem value="every 30 days">Every 30 Days</MenuItem>
+              {!master && <MenuItem value="one-time">One-Time</MenuItem>}
+            </Select>
+          </FormControl>
+        )}
 
         <Button variant="contained" color="primary" onClick={handleSubmit}>
           {selectedExpense ? "Update Expense" : "Add Expense"}
