@@ -776,9 +776,10 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
         // New user - no payInfo exists yet
         console.log("New user detected - no payInfo found");
         const { masterExpenses, masterBankAccounts } = this.getState();
-        const hasNoData = (!masterExpenses || masterExpenses.length === 0) && 
-                          (!masterBankAccounts || masterBankAccounts.length === 0);
-        
+        const hasNoData =
+          (!masterExpenses || masterExpenses.length === 0) &&
+          (!masterBankAccounts || masterBankAccounts.length === 0);
+
         this.setState(() => ({
           payInfo: null,
           loading: false,
@@ -1545,6 +1546,39 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
       return true;
     } catch (error) {
       console.error("Error updating paid status:", error);
+      return false;
+    }
+  }
+
+  async updatePayPeriodExpense(payPeriodExpense: PayPeriodExpense) {
+    const user = this.getState().user;
+    if (!user) {
+      console.error("No authenticated user found");
+      return false;
+    }
+
+    try {
+      await updateDoc(
+        doc(db, TABLE_NAME, user.uid, "payPeriodExpenses", payPeriodExpense.id),
+        {
+          ...payPeriodExpense,
+          updatedAt: new Date().toISOString(),
+        }
+      );
+
+      const currentExpenses = this.getState().payPeriodExpenses || [];
+      const updatedExpenses = currentExpenses.map((expense) =>
+        expense.id === payPeriodExpense.id ? payPeriodExpense : expense
+      );
+
+      this.setState({
+        selectedPayPeriodExpense: null,
+        newExpenseFormOpen: false,
+        payPeriodExpenses: updatedExpenses,
+      });
+      return true;
+    } catch (error) {
+      console.error("Error updating pay period expense:", error);
       return false;
     }
   }

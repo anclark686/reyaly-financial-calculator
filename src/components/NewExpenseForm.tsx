@@ -9,7 +9,7 @@ import FormControl from "@mui/material/FormControl";
 import Select from "@mui/material/Select";
 import styled from "@emotion/styled";
 
-import type { MainComponentProps } from "../utils/types";
+import type { MainComponentProps, PayPeriodExpense } from "../utils/types";
 
 const FormContainer = styled(Card)`
   margin: 16px;
@@ -23,18 +23,22 @@ const FormContainer = styled(Card)`
 `;
 
 function NewExpenseForm({ store, master }: MainComponentProps) {
-  const { selectedExpense } = store.getState();
-  const [name, setName] = useState(selectedExpense?.name || "");
+  const { selectedExpense, selectedPayPeriodExpense } = store.getState();
+  const expense = master ? selectedExpense : selectedPayPeriodExpense;
+  const dueDateValue = master
+    ? selectedExpense?.dueDate
+    : selectedPayPeriodExpense?.nextDueDate;
+  const [name, setName] = useState(expense?.name || "");
   const [amount, setAmount] = useState(
-    selectedExpense?.amount.toString() || ""
+    expense?.amount ? Math.abs(expense.amount).toString() : ""
   );
   const [type, setType] = useState<"withdrawal" | "deposit">(
-    selectedExpense?.type || "withdrawal"
+    expense?.type || "withdrawal"
   );
-  const [dueDate, setDueDate] = useState(selectedExpense?.dueDate || "");
+  const [dueDate, setDueDate] = useState(dueDateValue || "");
   const [frequency, setFrequency] = useState<
     "monthly" | "bi-weekly" | "every 30 days" | "one-time"
-  >(selectedExpense?.frequency || (master ? "monthly" : "one-time"));
+  >(expense?.frequency || (master ? "monthly" : "one-time"));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,16 +46,29 @@ function NewExpenseForm({ store, master }: MainComponentProps) {
       alert("Please fill in all required fields");
       return;
     }
+
     const newExpenseData = {
       name,
       amount: type === "withdrawal" ? -parseFloat(amount) : parseFloat(amount),
-      dueDate,
       frequency,
+      dueDate,
       type,
     };
 
-    if (selectedExpense) {
-      store.updateExpense(selectedExpense.id, newExpenseData);
+    if (expense) {
+      if (master) {
+        store.updateExpense(expense.id, newExpenseData);
+      } else {
+        const modifiedPayPeriodExpense = {
+          ...(expense as PayPeriodExpense),
+          name,
+          amount:
+            type === "withdrawal" ? -parseFloat(amount) : parseFloat(amount),
+          frequency,
+          type,
+        };
+        store.updatePayPeriodExpense(modifiedPayPeriodExpense);
+      }
     } else {
       store.addExpenseToUser(newExpenseData);
     }
@@ -65,7 +82,7 @@ function NewExpenseForm({ store, master }: MainComponentProps) {
   return (
     <FormContainer>
       <CardContent>
-        <h3>{selectedExpense ? "Edit Expense" : "Add New Expense"}</h3>
+        <h3>{expense ? "Edit Expense" : "Add New Expense"}</h3>
         <TextField
           label="Expense Name"
           variant="outlined"
@@ -129,7 +146,7 @@ function NewExpenseForm({ store, master }: MainComponentProps) {
         )}
 
         <Button variant="contained" color="primary" onClick={handleSubmit}>
-          {selectedExpense ? "Update Expense" : "Add Expense"}
+          {expense ? "Update Expense" : "Add Expense"}
         </Button>
       </CardContent>
     </FormContainer>

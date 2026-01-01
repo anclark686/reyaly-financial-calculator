@@ -13,7 +13,6 @@ import { ChevronLeft, ChevronRight } from "@mui/icons-material";
 import styled from "@emotion/styled";
 
 import type { MainComponentProps } from "../utils/types";
-// import LoadingSpinner from "./LoadingSpinner";
 
 const PayInfoContainer = styled.div`
   margin: 2rem 0;
@@ -47,7 +46,7 @@ const InfoContainer = styled.div`
 `;
 
 function PayInfo({ store, master }: MainComponentProps) {
-  const { payInfo } = store.getState();
+  const { payInfo, payPeriodExpenses } = store.getState();
   const [editing, setEditing] = useState(false);
   const [takeHome, setTakeHome] = useState(
     payInfo?.takeHomePay?.toString() || ""
@@ -83,6 +82,12 @@ function PayInfo({ store, master }: MainComponentProps) {
     setFrequency(payInfo?.payFrequency || "bi-weekly");
     setEditing(false);
   };
+
+  const totalExpenses =
+    payPeriodExpenses?.reduce(
+      (sum, expense) => sum + (expense.amount || 0),
+      0
+    ) || 0;
 
   return (
     <PayInfoContainer>
@@ -124,6 +129,21 @@ function PayInfo({ store, master }: MainComponentProps) {
                   <Typography variant="body1" color="text.secondary">
                     <strong>Take Home: </strong>$
                     {payInfo?.takeHomePay?.toFixed(2) || "0.00"}
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    {" "}
+                    |{" "}
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    <strong>Number of Expenses: </strong>
+                    {payPeriodExpenses?.length || 0}
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    {" "}
+                    |{" "}
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    <strong>Total Amount: </strong>${totalExpenses.toFixed(2)}
                   </Typography>
                 </InfoContainer>
               )}
