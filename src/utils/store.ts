@@ -86,7 +86,7 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
   init() {
     this.authUnsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        this.setState(() => ({ user }));
+        this.setState(() => ({ user, loading: true, payPeriodLoading: true }));
         this.getAllExpensesForUser();
         this.getAllBankAccountsForUser();
       } else {
@@ -276,10 +276,14 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
         };
       }) as BankAccount[];
 
-      this.setState(() => ({ masterBankAccounts: bankAccounts }));
+      this.setState(() => ({
+        masterBankAccounts: bankAccounts,
+        loading: false,
+      }));
       return bankAccounts;
     } catch (error) {
       console.error("Error getting bank accounts:", error);
+      this.setState({ loading: false });
       return [];
     }
   }
@@ -563,9 +567,10 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
           ...data,
         };
       }) as Expense[];
-      this.setState({ masterExpenses: expenses });
+      this.setState({ masterExpenses: expenses, loading: false });
     } catch (error) {
       console.error("Error fetching expenses:", error);
+      this.setState({ loading: false });
     }
   }
 
@@ -757,9 +762,22 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
         const currentPayDate = this.findCurrentPayPeriodBasedOnToday(payInfo);
 
         await this.getCurrentPayPeriod(currentPayDate);
+      } else {
+        // New user - no payInfo exists yet
+        console.log("New user detected - no payInfo found");
+        this.setState(() => ({
+          payInfo: null,
+          loading: false,
+          payPeriodLoading: false,
+        }));
       }
     } catch (error) {
       console.error("Error loading pay info:", error);
+      // Ensure loading states are set to false even on error
+      this.setState(() => ({
+        loading: false,
+        payPeriodLoading: false,
+      }));
     }
   }
 

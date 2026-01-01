@@ -17,15 +17,21 @@ const BtnContainer = styled.div`
 `;
 
 function MainPage({ store }: { store: CalculatorStore }) {
-  const [editMasterData, setEditMasterData] = useState(false);
+  // Set editMasterData to true if user has no data (new user)
   const {
     user,
     masterExpenses,
     masterBankAccounts,
-    payPeriodExpenses,
-    payPeriodBankAccounts,
     payInfo,
+    loading,
+    payPeriodLoading,
   } = store.getState();
+
+  const hasNoData =
+    !payInfo &&
+    (!masterExpenses || masterExpenses.length === 0) &&
+    (!masterBankAccounts || masterBankAccounts.length === 0);
+  const [editMasterData, setEditMasterData] = useState(hasNoData);
 
   // Show loading while user data is being fetched
   if (!user) {
@@ -33,12 +39,12 @@ function MainPage({ store }: { store: CalculatorStore }) {
   }
 
   // Show loading while master data is being loaded
-  if (!masterExpenses || !masterBankAccounts || !payInfo) {
+  if (loading) {
     return <LoadingSpinner message="Loading your financial data..." />;
   }
 
-  // Show loading while pay period data is being loaded
-  if (!payPeriodExpenses || !payPeriodBankAccounts) {
+  // Show loading while pay period data is being loaded (only if payInfo exists)
+  if (payPeriodLoading && payInfo) {
     return <LoadingSpinner message="Loading pay period data..." />;
   }
 

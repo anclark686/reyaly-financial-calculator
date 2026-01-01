@@ -45,7 +45,6 @@ function App() {
 
     // Load expenses and bank accounts when component mounts
     if (user) {
-      console.log("Loading data for user:", user.uid);
       store.getAllExpensesForUser();
       store.getAllBankAccountsForUser();
       store.loadUserPayInfo();
