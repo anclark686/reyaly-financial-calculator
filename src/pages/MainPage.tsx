@@ -1,4 +1,10 @@
-import { Button, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
+import {
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from "@mui/material";
 import { useState } from "react";
 import styled from "@emotion/styled";
 
@@ -75,14 +81,16 @@ function MainPage({ store }: { store: CalculatorStore }) {
         >
           {editMasterData ? "Done Editing" : "Edit Master Data"}
         </Button>
-        <Button
-          variant="contained"
-          color="warning"
-          onClick={() => setResetDialogOpen(true)}
-          disabled={!currentPayPeriod}
-        >
-          Reset Pay Period
-        </Button>
+        {!editMasterData && (
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => setResetDialogOpen(true)}
+            disabled={!currentPayPeriod}
+          >
+            Reset Pay Period
+          </Button>
+        )}
         <Button
           variant="contained"
           color="secondary"
@@ -96,9 +104,7 @@ function MainPage({ store }: { store: CalculatorStore }) {
       <Dialog open={resetDialogOpen} onClose={() => setResetDialogOpen(false)}>
         <DialogTitle>Reset Pay Period</DialogTitle>
         <DialogContent>
-          <p>
-            Are you sure you want to reset this pay period? This will:
-          </p>
+          <p>Are you sure you want to reset this pay period? This will:</p>
           <ul>
             <li>Delete all modified bank accounts for this period</li>
             <li>Delete all modified expenses for this period</li>
@@ -106,15 +112,20 @@ function MainPage({ store }: { store: CalculatorStore }) {
             <li>Create a fresh pay period with the same dates</li>
             <li>Regenerate bank accounts and expenses from master data</li>
           </ul>
-          <p><strong>This action cannot be undone.</strong></p>
+          <p>
+            <strong>This action cannot be undone.</strong>
+          </p>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setResetDialogOpen(false)} disabled={isResetting}>
+          <Button
+            onClick={() => setResetDialogOpen(false)}
+            disabled={isResetting}
+          >
             Cancel
           </Button>
-          <Button 
-            onClick={handleResetPayPeriod} 
-            color="warning" 
+          <Button
+            onClick={handleResetPayPeriod}
+            color="error"
             variant="contained"
             disabled={isResetting}
           >
