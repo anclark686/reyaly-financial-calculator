@@ -1066,7 +1066,6 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
       }));
       payPeriodId = existingPayPeriod.id;
     } else {
-      // Create a new pay period if one doesn't exist
       const newPayPeriod = await this.createNewPayPeriod(date);
       if (newPayPeriod) {
         this.setState((state) => ({
@@ -1095,8 +1094,64 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
       }
     }
 
-    // Set payPeriodLoading to false when complete
     this.setState(() => ({ payPeriodLoading: false }));
+  }
+
+  async resetPayPeriod() {
+    const user = this.getState().user;
+    const currentPayPeriod = this.getState().currentPayPeriod;
+    const payPeriodBankAccounts = this.getState().payPeriodBankAccounts || [];
+    const payPeriodExpenses = this.getState().payPeriodExpenses || [];
+
+    if (!user || !currentPayPeriod) {
+      console.error("No authenticated user found or no current pay period");
+      return false;
+    }
+
+    try {
+      for (const account of payPeriodBankAccounts) {
+        await deleteDoc(
+          doc(db, TABLE_NAME, user.uid, "payPeriodBankAccounts", account.id)
+        );
+      }
+
+      for (const expense of payPeriodExpenses) {
+        await deleteDoc(
+          doc(db, TABLE_NAME, user.uid, "payPeriodExpenses", expense.id)
+        );
+      }
+
+      await deleteDoc(
+        doc(
+          db,
+          TABLE_NAME,
+          user.uid,
+          "payPeriods",
+          "main",
+          currentPayPeriod.startDate.split("T")[0],
+          currentPayPeriod.id
+        )
+      );
+
+      this.setState(() => ({
+        currentPayPeriod: null,
+        payPeriodBankAccounts: null,
+        payPeriodExpenses: null,
+      }));
+
+      const newPayPeriod = await this.createNewPayPeriod(
+        new Date(currentPayPeriod.startDate)
+      );
+
+      if (newPayPeriod) {
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error resetting pay period:", error);
+      return false;
+    }
   }
 
   // PAY PERIOD BANK ACCOUNT FUNCTIONS
