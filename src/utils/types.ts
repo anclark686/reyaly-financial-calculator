@@ -27,6 +27,7 @@ export interface CalculatorState {
   selectedPayPeriodExpense: PayPeriodExpense | null;
   newBankAccountFormOpen: boolean;
   newExpenseFormOpen: boolean;
+  editMasterData: boolean;
 
   // Loading states
   loading: boolean;

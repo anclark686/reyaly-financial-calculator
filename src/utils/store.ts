@@ -74,6 +74,7 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
     selectedPayPeriodExpense: null,
     newBankAccountFormOpen: false,
     newExpenseFormOpen: false,
+    editMasterData: false,
     expensesDate: "",
 
     // Loading states
@@ -83,12 +84,21 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
 
   authUnsubscribe: (() => void) | null = null;
 
+  toggleEditMode() {
+    this.setState((state) => ({ editMasterData: !state.editMasterData }));
+  }
+
+  setEditMode(editMode: boolean) {
+    this.setState(() => ({ editMasterData: editMode }));
+  }
+
   init() {
     this.authUnsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         this.setState(() => ({ user, loading: true, payPeriodLoading: true }));
         this.getAllExpensesForUser();
         this.getAllBankAccountsForUser();
+        this.loadUserPayInfo();
       } else {
         this.setState(() => ({
           user: null,
@@ -765,10 +775,15 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
       } else {
         // New user - no payInfo exists yet
         console.log("New user detected - no payInfo found");
+        const { masterExpenses, masterBankAccounts } = this.getState();
+        const hasNoData = (!masterExpenses || masterExpenses.length === 0) && 
+                          (!masterBankAccounts || masterBankAccounts.length === 0);
+        
         this.setState(() => ({
           payInfo: null,
           loading: false,
           payPeriodLoading: false,
+          editMasterData: hasNoData, // Enable edit mode for new users
         }));
       }
     } catch (error) {
@@ -1078,6 +1093,9 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
         await this.getPayPeriodExpenses(payPeriodId);
       }
     }
+
+    // Set payPeriodLoading to false when complete
+    this.setState(() => ({ payPeriodLoading: false }));
   }
 
   // PAY PERIOD BANK ACCOUNT FUNCTIONS

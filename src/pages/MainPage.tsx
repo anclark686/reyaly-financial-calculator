@@ -1,5 +1,4 @@
-import { useState } from "react";
-import Button from "@mui/material/Button";
+import { Button } from "@mui/material";
 import styled from "@emotion/styled";
 
 import ExpenseList from "../components/ExpenseList";
@@ -17,21 +16,13 @@ const BtnContainer = styled.div`
 `;
 
 function MainPage({ store }: { store: CalculatorStore }) {
-  // Set editMasterData to true if user has no data (new user)
   const {
     user,
-    masterExpenses,
-    masterBankAccounts,
     payInfo,
     loading,
     payPeriodLoading,
+    editMasterData,
   } = store.getState();
-
-  const hasNoData =
-    !payInfo &&
-    (!masterExpenses || masterExpenses.length === 0) &&
-    (!masterBankAccounts || masterBankAccounts.length === 0);
-  const [editMasterData, setEditMasterData] = useState(hasNoData);
 
   // Show loading while user data is being fetched
   if (!user) {
@@ -58,7 +49,7 @@ function MainPage({ store }: { store: CalculatorStore }) {
         <Button
           variant="contained"
           color="secondary"
-          onClick={() => setEditMasterData(!editMasterData)}
+          onClick={() => store.toggleEditMode()}
         >
           {editMasterData ? "Done Editing" : "Edit Master Data"}
         </Button>

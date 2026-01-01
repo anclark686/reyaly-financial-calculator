@@ -32,6 +32,7 @@ function App() {
     selectedPayPeriodExpense: null,
     newBankAccountFormOpen: false,
     newExpenseFormOpen: false,
+    editMasterData: false,
 
     // Loading states
     loading: false,
@@ -43,18 +44,11 @@ function App() {
     // Initialize auth listener
     store.init();
 
-    // Load expenses and bank accounts when component mounts
-    if (user) {
-      store.getAllExpensesForUser();
-      store.getAllBankAccountsForUser();
-      store.loadUserPayInfo();
-    }
-
     // Cleanup auth listener on unmount
     return () => {
       store.cleanup();
     };
-  }, [user, store]);
+  }, [store]);
 
   return (
     <div>{user ? <MainPage store={store} /> : <LoginPage store={store} />}</div>
