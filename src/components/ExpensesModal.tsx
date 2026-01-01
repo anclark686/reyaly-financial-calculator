@@ -31,7 +31,7 @@ const style = {
 function ExpensesModal({ open, onClose, store }: ExpensesModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
-  const { payPeriodExpenses, selectedBankAccount } = store.getState();
+  const { payPeriodExpenses, selectedPayPeriodBankAccount } = store.getState();
 
   const fullClose = () => {
     setIsEditing(false);
@@ -48,9 +48,14 @@ function ExpensesModal({ open, onClose, store }: ExpensesModalProps) {
   };
 
   const handleAddExpenses = async () => {
-    if (selectedBankAccount) {
+    console.log("selectedExpenseIds:", selectedExpenseIds);
+    console.log("selectedPayPeriodBankAccount:", selectedPayPeriodBankAccount);
+    if (selectedPayPeriodBankAccount) {
       for (const expenseId of selectedExpenseIds) {
-        await store.addExpenseToBankAccount(selectedBankAccount.id, expenseId);
+        await store.addExpenseToBankAccount(
+          selectedPayPeriodBankAccount.id,
+          expenseId
+        );
       }
       setIsEditing(false);
       setSelectedExpenseIds([]);
@@ -58,27 +63,28 @@ function ExpensesModal({ open, onClose, store }: ExpensesModalProps) {
   };
 
   const handleRemoveExpense = async (expenseId: string) => {
-    if (selectedBankAccount) {
+    if (selectedPayPeriodBankAccount) {
       await store.removeExpenseFromBankAccount(
-        selectedBankAccount.id,
+        selectedPayPeriodBankAccount.id,
         expenseId
       );
     }
   };
 
   // Get expenses for the selected bank account
-  const bankAccountExpenses = selectedBankAccount
-    ? store.getExpensesForBankAccount(selectedBankAccount.id)
+  const bankAccountExpenses = selectedPayPeriodBankAccount
+    ? store.getExpensesForBankAccount(selectedPayPeriodBankAccount.id)
     : [];
 
   return (
     <Modal open={open} onClose={fullClose}>
       <Box sx={style}>
         <Typography id="modal-modal-title" variant="h6" component="h2">
-          Expenses for {selectedBankAccount?.name || "Selected Account"}
+          Expenses for{" "}
+          {selectedPayPeriodBankAccount?.name || "Selected Account"}
         </Typography>
         <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-          {selectedBankAccount ? (
+          {selectedPayPeriodBankAccount ? (
             <span>
               {bankAccountExpenses.length > 0 ? (
                 bankAccountExpenses.map((expense) => (
@@ -106,16 +112,16 @@ function ExpensesModal({ open, onClose, store }: ExpensesModalProps) {
                   </span>
                 ))
               ) : (
-                <p>No expenses assigned to this account</p>
+                <span>No expenses assigned to this account</span>
               )}
             </span>
           ) : (
-            <p>No account selected</p>
+            <span>No account selected</span>
           )}
         </Typography>
 
         {/* Show total expenses amount */}
-        {selectedBankAccount && bankAccountExpenses.length > 0 && (
+        {selectedPayPeriodBankAccount && bankAccountExpenses.length > 0 && (
           <Typography variant="h6" sx={{ mt: 2, fontWeight: "bold" }}>
             Total Expenses: $
             {bankAccountExpenses
@@ -146,10 +152,10 @@ function ExpensesModal({ open, onClose, store }: ExpensesModalProps) {
                   expense.id
                 );
                 const isAssignedToOtherAccount = assignedAccounts.some(
-                  (account) => account.id !== selectedBankAccount?.id
+                  (account) => account.id !== selectedPayPeriodBankAccount?.id
                 );
                 const isAssignedToCurrentAccount = assignedAccounts.some(
-                  (account) => account.id === selectedBankAccount?.id
+                  (account) => account.id === selectedPayPeriodBankAccount?.id
                 );
 
                 return (

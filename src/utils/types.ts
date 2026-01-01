@@ -1,4 +1,4 @@
-import type { User } from 'firebase/auth';
+import type { User } from "firebase/auth";
 
 import { CalculatorStore } from "../utils/store";
 
@@ -8,18 +8,18 @@ export interface CalculatorState {
   confirmPassword: string;
   user: User | null;
   loginError: string | null;
-  
+
   // Master data (global across all periods)
   masterBankAccounts: BankAccount[] | null;
   masterExpenses: Expense[] | null;
   payInfo: PayInfo | null;
-  
+
   // Period-specific data
   payPeriods: PayPeriod[] | null;
   currentPayPeriod: PayPeriod | null;
   payPeriodBankAccounts: PayPeriodBankAccount[] | null;
   payPeriodExpenses: PayPeriodExpense[] | null;
-  
+
   // UI state
   selectedBankAccount: BankAccount | null;
   selectedExpense: Expense | null;
@@ -27,7 +27,7 @@ export interface CalculatorState {
   selectedPayPeriodExpense: PayPeriodExpense | null;
   newBankAccountFormOpen: boolean;
   newExpenseFormOpen: boolean;
-  
+
   // Loading states
   loading: boolean;
   payPeriodLoading: boolean;
@@ -79,7 +79,8 @@ export interface PayPeriod {
 export interface PayPeriodBankAccount {
   id: string;
   payPeriodId: string;
-  masterBankAccountId: string; // Reference to master bank account
+  masterBankAccountId: string;
+  compositeId: string;
   name: string;
   color: string;
   startingBalance: number;
@@ -91,7 +92,8 @@ export interface PayPeriodBankAccount {
 export interface PayPeriodExpense {
   id: string;
   payPeriodId: string;
-  masterExpenseId: string; // Reference to master expense
+  masterExpenseId: string;
+  compositeId: string;
   name: string;
   amount: number;
   type: "withdrawal" | "deposit";

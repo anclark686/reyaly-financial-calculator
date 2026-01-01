@@ -29,6 +29,12 @@ import type {
   PayPeriodBankAccount,
   PayPeriodExpense,
 } from "./types";
+
+// Type for creating PayPeriodExpense without Firestore ID
+type PayPeriodExpenseCreate = Omit<PayPeriodExpense, "id">;
+
+// Type for creating PayPeriodBankAccount without Firestore ID
+type PayPeriodBankAccountCreate = Omit<PayPeriodBankAccount, "id">;
 import { findNextDueDate } from "./helpers";
 
 const ERROR_MAP: Record<string, string> = {
@@ -250,157 +256,7 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
     }
   }
 
-  // EXPENSE FUNCTIONS
-  async getAllExpensesForUser() {
-    const user = this.getState().user;
-    if (!user) return;
-
-    try {
-      const querySnapshot = await getDocs(
-        collection(db, TABLE_NAME, user.uid, "expenses")
-      );
-      const expenses = querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          nextDueDate: findNextDueDate(
-            data.dueDate,
-            data.frequency,
-            new Date()
-          ),
-          ...data,
-        };
-      }) as Expense[];
-      this.setState({ masterExpenses: expenses });
-    } catch (error) {
-      console.error("Error fetching expenses:", error);
-    }
-  }
-
-  async addExpenseToUser(expenseData: {
-    name: string;
-    amount: number;
-    type: "withdrawal" | "deposit";
-    dueDate: string;
-    frequency: "monthly" | "bi-weekly" | "every 30 days" | "one-time";
-  }) {
-    const user = this.getState().user;
-    if (!user) {
-      console.error("No authenticated user found");
-      return false;
-    }
-
-    try {
-      const newExpense = {
-        userUID: user.uid,
-        name: expenseData.name,
-        amount: expenseData.amount,
-        type: expenseData.type,
-        dueDate: expenseData.dueDate,
-        frequency: expenseData.frequency,
-        nextDueDate: findNextDueDate(
-          expenseData.dueDate!,
-          expenseData.frequency!,
-          new Date()
-        ),
-        isPaid: false,
-        createdAt: new Date().toISOString(),
-      };
-      const docRef = await addDoc(
-        collection(db, TABLE_NAME, user.uid, "expenses"),
-        newExpense
-      );
-      console.log("Document written with ID: ", docRef.id);
-      this.setState(({ masterExpenses }) => ({
-        masterExpenses: [
-          ...(masterExpenses || []),
-          { ...newExpense, id: docRef.id } as Expense,
-        ],
-      }));
-
-      // Update all existing pay periods with the new expense
-      await this.updateAllPayPeriodsWithNewMasterData();
-
-      return true;
-    } catch (error) {
-      console.error("Error adding expense:", error);
-      return false;
-    }
-  }
-
-  async updateExpense(expenseId: string, expenseData: Partial<Expense>) {
-    const user = this.getState().user;
-    if (!user) {
-      console.error("No authenticated user found");
-      return false;
-    }
-
-    try {
-      await updateDoc(doc(db, TABLE_NAME, user.uid, "expenses", expenseId), {
-        ...expenseData,
-        updatedAt: new Date().toISOString(),
-      });
-
-      this.setState(({ masterExpenses }) => ({
-        masterExpenses: (masterExpenses || []).map((exp: Expense) =>
-          exp.id === expenseId
-            ? {
-                ...exp,
-                ...expenseData,
-                nextDueDate:
-                  expenseData.dueDate && expenseData.frequency
-                    ? findNextDueDate(
-                        expenseData.dueDate,
-                        expenseData.frequency,
-                        new Date()
-                      ) || undefined
-                    : exp.nextDueDate,
-              }
-            : exp
-        ),
-        selectedExpense: null,
-        newExpenseFormOpen: false,
-      }));
-
-      return true;
-    } catch (error) {
-      console.error("Error updating expense:", error);
-      return false;
-    }
-  }
-
-  async deleteExpense(expenseId: string) {
-    const user = this.getState().user;
-    if (!user) {
-      console.error("No authenticated user found");
-      return false;
-    }
-
-    try {
-      // First, remove expense from all bank accounts that reference it
-      const bankAccounts = this.getState().masterBankAccounts || [];
-      for (const bankAccount of bankAccounts) {
-        const expenseIds = bankAccount.expenseIds || [];
-        if (expenseIds.includes(expenseId)) {
-          await this.removeExpenseFromBankAccount(bankAccount.id, expenseId);
-        }
-      }
-
-      // Then delete the expense document
-      await deleteDoc(doc(db, TABLE_NAME, user.uid, "expenses", expenseId));
-      this.setState(({ masterExpenses }) => ({
-        masterExpenses: (masterExpenses || []).filter(
-          (expense: Expense) => expense.id !== expenseId
-        ),
-      }));
-      return true;
-    } catch (error) {
-      console.error("Error deleting expense:", error);
-      return false;
-    }
-  }
-
-  // BANK ACCOUNT FUNCTIONS
+  // MASTER BANK ACCOUNT FUNCTIONS
   async getAllBankAccountsForUser() {
     const user = this.getState().user;
     if (!user) {
@@ -457,7 +313,6 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
         ],
       }));
 
-      // Update all existing pay periods with the new bank account
       await this.updateAllPayPeriodsWithNewMasterData();
 
       return true;
@@ -542,7 +397,7 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
         db,
         TABLE_NAME,
         user.uid,
-        "bankAccounts",
+        "payPeriodBankAccounts",
         bankAccountId
       );
       const bankAccountDoc = await getDoc(bankAccountRef);
@@ -561,9 +416,9 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
           updatedAt: new Date().toISOString(),
         });
 
-        this.setState(({ masterBankAccounts }) => ({
-          masterBankAccounts: (masterBankAccounts || []).map(
-            (account: BankAccount) =>
+        this.setState(({ payPeriodBankAccounts }) => ({
+          payPeriodBankAccounts: (payPeriodBankAccounts || []).map(
+            (account: PayPeriodBankAccount) =>
               account.id === bankAccountId
                 ? { ...account, expenseIds: [...expenseIds, expenseId] }
                 : account
@@ -590,7 +445,7 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
         db,
         TABLE_NAME,
         user.uid,
-        "bankAccounts",
+        "payPeriodBankAccounts",
         bankAccountId
       );
       const bankAccountDoc = await getDoc(bankAccountRef);
@@ -609,9 +464,9 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
           updatedAt: new Date().toISOString(),
         });
 
-        this.setState(({ masterBankAccounts }) => ({
-          masterBankAccounts: (masterBankAccounts || []).map(
-            (account: BankAccount) =>
+        this.setState(({ payPeriodBankAccounts }) => ({
+          payPeriodBankAccounts: (payPeriodBankAccounts || []).map(
+            (account: PayPeriodBankAccount) =>
               account.id === bankAccountId
                 ? {
                     ...account,
@@ -631,32 +486,34 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
     }
   }
 
-  getExpensesForBankAccount(bankAccountId: string): Expense[] {
-    const { masterExpenses, masterBankAccounts } = this.getState();
-    const bankAccount = masterBankAccounts?.find(
-      (account: BankAccount) => account.id === bankAccountId
+  getExpensesForBankAccount(bankAccountId: string): PayPeriodExpense[] {
+    const { payPeriodBankAccounts, payPeriodExpenses } = this.getState();
+    const bankAccount = payPeriodBankAccounts?.find(
+      (account: PayPeriodBankAccount) => account.id === bankAccountId
     );
 
-    if (!bankAccount || !masterExpenses) {
+    if (!bankAccount || !payPeriodExpenses) {
       return [];
     }
 
-    // Handle case where expenseIds might be undefined (from existing data)
     const expenseIds = bankAccount.expenseIds || [];
 
-    // Map expense IDs to full expense objects
     return expenseIds.length > 0
       ? expenseIds
           .map((expenseId: string) =>
-            masterExpenses?.find((expense: Expense) => expense.id === expenseId)
+            payPeriodExpenses?.find(
+              (expense: PayPeriodExpense) => expense.id === expenseId
+            )
           )
-          .filter((expense): expense is Expense => expense !== undefined)
+          .filter(
+            (expense): expense is PayPeriodExpense => expense !== undefined
+          )
       : [];
   }
 
   getCurrentBalance(bankAccountId: string): number {
-    const bankAccount = this.getState().masterBankAccounts?.find(
-      (account: BankAccount) => account.id === bankAccountId
+    const bankAccount = this.getState().payPeriodBankAccounts?.find(
+      (account: PayPeriodBankAccount) => account.id === bankAccountId
     );
 
     if (!bankAccount) {
@@ -672,17 +529,164 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
     return bankAccount.startingBalance + totalExpenses;
   }
 
-  getBankAccountsForExpense(expenseId: string): BankAccount[] {
-    const { masterBankAccounts } = this.getState();
+  getBankAccountsForExpense(expenseId: string): PayPeriodBankAccount[] {
+    const { payPeriodBankAccounts } = this.getState();
 
-    if (!masterBankAccounts) {
+    if (!payPeriodBankAccounts) {
       return [];
     }
 
-    return masterBankAccounts.filter((bankAccount: BankAccount) => {
+    return payPeriodBankAccounts.filter((bankAccount: PayPeriodBankAccount) => {
       const expenseIds = bankAccount.expenseIds || [];
       return expenseIds.includes(expenseId);
     });
+  }
+
+  // MASTER EXPENSE FUNCTIONS
+  async getAllExpensesForUser() {
+    const user = this.getState().user;
+    if (!user) return;
+
+    try {
+      const querySnapshot = await getDocs(
+        collection(db, TABLE_NAME, user.uid, "expenses")
+      );
+      const expenses = querySnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          nextDueDate: findNextDueDate(
+            data.dueDate,
+            data.frequency,
+            new Date()
+          ),
+          ...data,
+        };
+      }) as Expense[];
+      this.setState({ masterExpenses: expenses });
+    } catch (error) {
+      console.error("Error fetching expenses:", error);
+    }
+  }
+
+  async addExpenseToUser(expenseData: {
+    name: string;
+    amount: number;
+    type: "withdrawal" | "deposit";
+    dueDate: string;
+    frequency: "monthly" | "bi-weekly" | "every 30 days" | "one-time";
+  }) {
+    const user = this.getState().user;
+    if (!user) {
+      console.error("No authenticated user found");
+      return false;
+    }
+
+    try {
+      const newExpense = {
+        userUID: user.uid,
+        name: expenseData.name,
+        amount: expenseData.amount,
+        type: expenseData.type,
+        dueDate: expenseData.dueDate,
+        frequency: expenseData.frequency,
+        nextDueDate: findNextDueDate(
+          expenseData.dueDate!,
+          expenseData.frequency!,
+          new Date()
+        ),
+        isPaid: false,
+        createdAt: new Date().toISOString(),
+      };
+      const docRef = await addDoc(
+        collection(db, TABLE_NAME, user.uid, "expenses"),
+        newExpense
+      );
+
+      this.setState(({ masterExpenses }) => ({
+        masterExpenses: [
+          ...(masterExpenses || []),
+          { ...newExpense, id: docRef.id } as Expense,
+        ],
+      }));
+
+      await this.updateAllPayPeriodsWithNewMasterData();
+
+      return true;
+    } catch (error) {
+      console.error("Error adding expense:", error);
+      return false;
+    }
+  }
+
+  async updateExpense(expenseId: string, expenseData: Partial<Expense>) {
+    const user = this.getState().user;
+    if (!user) {
+      console.error("No authenticated user found");
+      return false;
+    }
+
+    try {
+      await updateDoc(doc(db, TABLE_NAME, user.uid, "expenses", expenseId), {
+        ...expenseData,
+        updatedAt: new Date().toISOString(),
+      });
+
+      this.setState(({ masterExpenses }) => ({
+        masterExpenses: (masterExpenses || []).map((exp: Expense) =>
+          exp.id === expenseId
+            ? {
+                ...exp,
+                ...expenseData,
+                nextDueDate:
+                  expenseData.dueDate && expenseData.frequency
+                    ? findNextDueDate(
+                        expenseData.dueDate,
+                        expenseData.frequency,
+                        new Date()
+                      ) || undefined
+                    : exp.nextDueDate,
+              }
+            : exp
+        ),
+        selectedExpense: null,
+        newExpenseFormOpen: false,
+      }));
+
+      return true;
+    } catch (error) {
+      console.error("Error updating expense:", error);
+      return false;
+    }
+  }
+
+  async deleteExpense(expenseId: string) {
+    const user = this.getState().user;
+    if (!user) {
+      console.error("No authenticated user found");
+      return false;
+    }
+
+    try {
+      const bankAccounts = this.getState().masterBankAccounts || [];
+      for (const bankAccount of bankAccounts) {
+        const expenseIds = bankAccount.expenseIds || [];
+        if (expenseIds.includes(expenseId)) {
+          await this.removeExpenseFromBankAccount(bankAccount.id, expenseId);
+        }
+      }
+
+      await deleteDoc(doc(db, TABLE_NAME, user.uid, "expenses", expenseId));
+      this.setState(({ masterExpenses }) => ({
+        masterExpenses: (masterExpenses || []).filter(
+          (expense: Expense) => expense.id !== expenseId
+        ),
+      }));
+      return true;
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+      return false;
+    }
   }
 
   // PAY PERIOD FUNCTIONS
@@ -695,18 +699,14 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
 
     try {
       const payInfoRef = doc(db, TABLE_NAME, user.uid, "payInfo", "main");
-
-      // Check if pay info already exists
       const payInfoDoc = await getDoc(payInfoRef);
 
       if (payInfoDoc.exists()) {
-        // Update existing pay info
         await updateDoc(payInfoRef, {
           ...payInfoData,
           updatedAt: new Date().toISOString(),
         });
 
-        // Update state with existing `document ID
         const updatedPayInfo = {
           id: payInfoDoc.id,
           ...payInfoData,
@@ -714,11 +714,7 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
         } as PayInfo;
 
         this.setState(() => ({ payInfo: updatedPayInfo }));
-
-        // Generate pay periods if they don't exist
-        // await this.getAllPayPeriodsForUser();
       } else {
-        // Create new pay info
         const newPayInfo = {
           ...payInfoData,
           userUID: user.uid,
@@ -727,13 +723,9 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
 
         await setDoc(payInfoRef, newPayInfo);
 
-        // Update state
         this.setState(() => ({
           payInfo: { ...newPayInfo, id: payInfoRef.id },
         }));
-
-        // Generate initial pay periods
-        // await this.createPayPeriodsForUser({ ...newPayInfo, id: payInfoRef.id });
       }
 
       return true;
@@ -762,280 +754,22 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
 
         this.setState(() => ({ payInfo }));
 
-        // Set the current pay period based on the calculated date
         const currentPayDate = this.findCurrentPayPeriodBasedOnToday(payInfo);
 
         await this.getCurrentPayPeriod(currentPayDate);
-        // Load pay periods for this user
-        // await this.getAllPayPeriodsForUser();
       }
     } catch (error) {
       console.error("Error loading pay info:", error);
     }
   }
 
-  // generatePayPeriodsForYear(payInfo: PayInfo, year: number): PayPeriod[] {
-  //   const periods: PayPeriod[] = [];
-  //   const startDate = new Date(payInfo.startDate);
-
-  //   let periodCount = 0;
-  //   switch (payInfo.payFrequency) {
-  //     case 'weekly':
-  //       periodCount = 52;
-  //       break;
-  //     case 'bi-weekly':
-  //       periodCount = 26;
-  //       break;
-  //     case 'monthly':
-  //       periodCount = 12;
-  //       break;
-  //     case 'semi-monthly':
-  //       periodCount = 24;
-  //       break;
-  //     default:
-  //       periodCount = 12;
-  //   }
-
-  //   for (let i = 1; i <= periodCount; i++) {
-  //     const periodStartDate = new Date(startDate);
-  //     const periodEndDate = new Date(startDate);
-
-  //     switch (payInfo.payFrequency) {
-  //       case 'weekly':
-  //         periodStartDate.setDate(startDate.getDate() + (i - 1) * 7);
-  //         periodEndDate.setDate(periodStartDate.getDate() + 6);
-  //         break;
-  //       case 'bi-weekly':
-  //         periodStartDate.setDate(startDate.getDate() + (i - 1) * 14);
-  //         periodEndDate.setDate(periodStartDate.getDate() + 13);
-  //         break;
-  //       case 'monthly':
-  //         periodStartDate.setMonth(startDate.getMonth() + (i - 1));
-  //         periodEndDate.setMonth(periodStartDate.getMonth() + 1);
-  //         periodEndDate.setDate(periodEndDate.getDate() - 1);
-  //         break;
-  //       case 'semi-monthly':
-  //         if (i % 2 === 1) {
-  //           periodStartDate.setMonth(startDate.getMonth() + Math.floor((i - 1) / 2));
-  //           periodStartDate.setDate(1);
-  //           periodEndDate.setDate(15);
-  //         } else {
-  //           periodStartDate.setMonth(startDate.getMonth() + Math.floor((i - 1) / 2));
-  //           periodStartDate.setDate(16);
-  //           periodEndDate.setMonth(periodStartDate.getMonth() + 1);
-  //           periodEndDate.setDate(0);
-  //         }
-  //         break;
-  //     }
-
-  //     periods.push({
-  //       id: `${payInfo.id}-${year}-${i}`,
-  //       userUID: payInfo.userUID,
-  //       payInfoId: payInfo.id,
-  //       startDate: periodStartDate.toISOString(),
-  //       endDate: periodEndDate.toISOString(),
-  //       periodNumber: i,
-  //       year,
-  //       isActive: this.isDateInPayPeriod(new Date(), periodStartDate, periodEndDate),
-  //       createdAt: new Date().toISOString(),
-  //     });
-  //   }
-
-  //   return periods;
-  // }
-
-  private isDateInPayPeriod(
-    date: Date,
-    startDate: Date,
-    endDate: Date
-  ): boolean {
-    return date >= startDate && date <= endDate;
-  }
-
-  // async createPayPeriodsForUser(payInfo: PayInfo) {
-  //   const user = this.getState().user;
-  //   if (!user) {
-  //     console.error("No authenticated user found");
-  //     return false;
-  //   }
-
-  //   try {
-  //     // const currentYear = new Date().getFullYear();
-  //     // const payPeriods = this.generatePayPeriodsForYear(payInfo, currentYear);
-  //     const payPeriods: PayPeriod[] = []
-
-  //     // Save all pay periods to Firestore
-  //     for (const payPeriod of payPeriods) {
-  //       await addDoc(
-  //         collection(db, TABLE_NAME, user.uid, "payPeriods"),
-  //         payPeriod
-  //       );
-  //     }
-
-  //     // Update state
-  //     this.setState(() => ({
-  //       payPeriods,
-  //       currentPayPeriod: payPeriods.find(pp => pp.isActive) || null
-  //     }));
-
-  //     return true;
-  //   } catch (error) {
-  //     console.error("Error creating pay periods:", error);
-  //     return false;
-  //   }
-  // }
-
-  // async getAllPayPeriodsForUser() {
-  //   const user = this.getState().user;
-  //   console.log("Getting pay periods for user:", user?.uid);
-  //   if (!user) {
-  //     console.error("No authenticated user found");
-  //     return [];
-  //   }
-
-  //   try {
-  //     const querySnapshot = await getDocs(
-  //       collection(db, TABLE_NAME, user.uid, "payPeriods")
-  //     );
-  //     let payPeriods = querySnapshot.docs.map((doc) => ({
-  //       id: doc.id,
-  //       ...doc.data(),
-  //     })) as PayPeriod[];
-
-  //     if (payPeriods.length === 0) {
-  //       const payInfo = this.getState().payInfo;
-  //       if (payInfo) {
-  //         payPeriods = this.generatePayPeriodsForYear(payInfo, new Date().getFullYear());
-  //       } else {
-  //         return [];
-  //       }
-  //     }
-
-  //     this.setState(() => ({
-  //       payPeriods,
-  //       currentPayPeriod: payPeriods.find(pp => pp.isActive) || null
-  //     }));
-  //     console.log("Loaded pay periods:", payPeriods);
-  //     return payPeriods;
-  //   } catch (error) {
-  //     console.error("Error getting pay periods:", error);
-  //     return [];
-  //   }
-  // }
-
-  // PAY PERIOD NAVIGATION METHODS
-  // async navigateToNextPayPeriod() {
-  //   const { currentPayPeriod, payInfo, payPeriods } = this.getState();
-  //   if (!currentPayPeriod || !payInfo) return;
-
-  //   const nextPeriodNumber = currentPayPeriod.periodNumber + 1;
-  //   const nextYear = currentPayPeriod.year;
-
-  //   // Check if next period exists, if not create it
-  //   let nextPeriod = payPeriods?.find(p =>
-  //     p.periodNumber === nextPeriodNumber && p.year === nextYear
-  //   );
-
-  //   if (!nextPeriod) {
-  //     // Generate the next period
-  //     const generatedPeriods = this.generatePayPeriodsForYear(payInfo, nextYear);
-  //     nextPeriod = generatedPeriods.find(p => p.periodNumber === nextPeriodNumber);
-
-  //     if (nextPeriod) {
-  //       // Save to database
-  //       await this.savePayPeriodToDatabase(nextPeriod);
-
-  //       // Update state
-  //       this.setState(({ payPeriods: existing }) => ({
-  //         payPeriods: [...(existing || []), nextPeriod!]
-  //       }));
-  //     }
-  //   }
-
-  //   if (nextPeriod) {
-  //     await this.loadPayPeriodData(nextPeriod);
-  //     this.setCurrentPayPeriod(nextPeriod);
-  //   }
-  // }
-
-  // async navigateToPreviousPayPeriod() {
-  //   const { currentPayPeriod, payInfo, payPeriods } = this.getState();
-  //   if (!currentPayPeriod || !payInfo) return;
-
-  //   const prevPeriodNumber = currentPayPeriod.periodNumber - 1;
-  //   const prevYear = currentPayPeriod.year;
-
-  //   // Check if previous period exists, if not create it
-  //   let prevPeriod = payPeriods?.find(p =>
-  //     p.periodNumber === prevPeriodNumber && p.year === prevYear
-  //   );
-
-  //   if (!prevPeriod && prevPeriodNumber > 0) {
-  //     // Generate the previous period
-  //     const generatedPeriods = this.generatePayPeriodsForYear(payInfo, prevYear);
-  //     prevPeriod = generatedPeriods.find(p => p.periodNumber === prevPeriodNumber);
-
-  //     if (prevPeriod) {
-  //       // Save to database
-  //       await this.savePayPeriodToDatabase(prevPeriod);
-
-  //       // Update state
-  //       this.setState(({ payPeriods: existing }) => ({
-  //         payPeriods: [...(existing || []), prevPeriod!]
-  //       }));
-  //     }
-  //   }
-
-  //   if (prevPeriod) {
-  //     await this.loadPayPeriodData(prevPeriod);
-  //     this.setCurrentPayPeriod(prevPeriod);
-  //   }
-  // }
-
-  private async savePayPeriodToDatabase(payPeriod: PayPeriod) {
-    const user = this.getState().user;
-    if (!user) return;
-
-    try {
-      await addDoc(
-        collection(db, TABLE_NAME, user.uid, "payPeriods"),
-        payPeriod
-      );
-    } catch (error) {
-      console.error("Error saving pay period:", error);
-    }
-  }
-
-  private async loadPayPeriodData(payPeriod: PayPeriod) {
-    // Load pay period specific data
-    await this.getPayPeriodBankAccounts(payPeriod.id);
-    await this.getPayPeriodExpenses(payPeriod.id);
-  }
-
-  // canNavigateToNext(): boolean {
-  //   const { currentPayPeriod, payInfo } = this.getState();
-  //   if (!currentPayPeriod || !payInfo) return false;
-
-  //   const maxPeriods = this.getMaxPeriodsForFrequency(payInfo.payFrequency);
-  //   return currentPayPeriod.periodNumber < maxPeriods;
-  // }
-
-  // canNavigateToPrevious(): boolean {
-  //   const { currentPayPeriod } = this.getState();
-  //   if (!currentPayPeriod) return false;
-
-  //   return currentPayPeriod.periodNumber > 1;
-  // }
-
   getCurrentPayPeriodDisplay(): string {
     const { currentPayPeriod } = this.getState();
     if (!currentPayPeriod) return "No Period Selected";
 
-    // Manually parse date strings to avoid timezone issues
     const startISO = currentPayPeriod.startDate.split("T")[0];
     const endISO = currentPayPeriod.endDate.split("T")[0];
 
-    // Create dates from YYYY-MM-DD format
     const [startYear, startMonth, startDay] = startISO.split("-").map(Number);
     const [endYear, endMonth, endDay] = endISO.split("-").map(Number);
 
@@ -1052,22 +786,6 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
     })}`;
   }
 
-  private getMaxPeriodsForFrequency(frequency: string): number {
-    switch (frequency) {
-      case "weekly":
-        return 52;
-      case "bi-weekly":
-        return 26;
-      case "monthly":
-        return 12;
-      case "semi-monthly":
-        return 24;
-      default:
-        return 12;
-    }
-  }
-
-  // My Stuff
   findCurrentPayPeriodBasedOnToday(payInfo?: PayInfo): Date {
     const info = payInfo || this.getState().payInfo;
     if (!info) {
@@ -1080,7 +798,6 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
 
     switch (info.payFrequency) {
       case "weekly": {
-        // Find the most recent start date that's <= today
         const daysSinceStart = Math.floor(
           (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
         );
@@ -1088,7 +805,6 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
         const currentPeriodStart = new Date(startDate);
         currentPeriodStart.setDate(startDate.getDate() + weeksSinceStart * 7);
 
-        // If this calculated date is in the future, go back one period
         if (currentPeriodStart > today) {
           currentPeriodStart.setDate(
             startDate.getDate() + (weeksSinceStart - 1) * 7
@@ -1099,26 +815,16 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
       }
 
       case "bi-weekly": {
-        // Find the most recent start date that's <= today
         const daysSinceStartBi = Math.floor(
           (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
         );
         const periodsSinceStartBi = Math.floor(daysSinceStartBi / 14);
 
-        console.log("Bi-weekly calculation:", {
-          today: today.toISOString().split("T")[0],
-          startDate: startDate.toISOString().split("T")[0],
-          daysSinceStartBi,
-          periodsSinceStartBi,
-        });
-
-        // Calculate the most recent period start date
         const currentPeriodStartBi = new Date(startDate);
         currentPeriodStartBi.setDate(
           startDate.getDate() + periodsSinceStartBi * 14
         );
 
-        // If this calculated date is in the future, go back one period
         if (currentPeriodStartBi > today) {
           currentPeriodStartBi.setDate(
             startDate.getDate() + (periodsSinceStartBi - 1) * 14
@@ -1129,13 +835,10 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
       }
 
       case "monthly": {
-        // Current period starts on 1st of current month
         return new Date(today.getFullYear(), today.getMonth(), 1);
       }
 
       case "semi-monthly": {
-        // If today is 1st-15th, current period started on 1st
-        // If today is 16th+, current period started on 16th
         if (today.getDate() <= 15) {
           return new Date(today.getFullYear(), today.getMonth(), 1);
         } else {
@@ -1231,7 +934,7 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
 
     await this.createPayPeriodBankAccounts(payPeriodRef.id);
     await this.assignExpensesToPayPeriod(payPeriodRef.id);
-    // Return the created pay period data for immediate use
+
     return { ...payPeriodData, id: payPeriodRef.id };
   }
 
@@ -1341,7 +1044,6 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
       }
     }
     if (payPeriodId) {
-      // Check if pay period bank accounts exist, if not create them
       const existingBankAccounts = await this.getPayPeriodBankAccounts(
         payPeriodId
       );
@@ -1351,7 +1053,6 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
         await this.getPayPeriodBankAccounts(payPeriodId);
       }
 
-      // Check if pay period expenses exist, if not create them
       const existingExpenses = await this.getPayPeriodExpenses(payPeriodId);
       if (existingExpenses.length === 0) {
         console.log("No expenses found for pay period, creating them");
@@ -1375,8 +1076,8 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
       const payPeriodBankAccounts: PayPeriodBankAccount[] = [];
 
       for (const masterAccount of masterBankAccounts) {
-        const payPeriodAccount: PayPeriodBankAccount = {
-          id: `${payPeriodId}-${masterAccount.id}`,
+        const payPeriodAccount: PayPeriodBankAccountCreate = {
+          compositeId: `${payPeriodId}-${masterAccount.id}`,
           payPeriodId,
           masterBankAccountId: masterAccount.id,
           name: masterAccount.name,
@@ -1387,12 +1088,18 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
           createdAt: new Date().toISOString(),
         };
 
-        await addDoc(
+        const docRef = await addDoc(
           collection(db, TABLE_NAME, user.uid, "payPeriodBankAccounts"),
           payPeriodAccount
         );
 
-        payPeriodBankAccounts.push(payPeriodAccount);
+        // Update the object with the actual Firestore document ID
+        const payPeriodAccountWithId: PayPeriodBankAccount = {
+          ...payPeriodAccount,
+          id: docRef.id,
+        };
+
+        payPeriodBankAccounts.push(payPeriodAccountWithId);
       }
 
       this.setState(({ payPeriodBankAccounts: existing }) => ({
@@ -1434,41 +1141,112 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
     }
   }
 
+  async updatePayPeriodBankAccounts(payPeriodId: string) {
+    const user = this.getState().user;
+    const masterBankAccounts = this.getState().masterBankAccounts || [];
+
+    if (!user) return false;
+
+    try {
+      const existingAccounts = await this.getPayPeriodBankAccounts(payPeriodId);
+
+      const existingMasterIds = existingAccounts.map(
+        (acc) => acc.masterBankAccountId
+      );
+      const newMasterAccounts = masterBankAccounts.filter(
+        (master) => !existingMasterIds.includes(master.id)
+      );
+
+      for (const masterAccount of newMasterAccounts) {
+        const payPeriodAccount: PayPeriodBankAccountCreate = {
+          compositeId: `${payPeriodId}-${masterAccount.id}`,
+          payPeriodId,
+          masterBankAccountId: masterAccount.id,
+          name: masterAccount.name,
+          color: masterAccount.color,
+          startingBalance: masterAccount.startingBalance,
+          currentBalance: masterAccount.startingBalance,
+          expenseIds: masterAccount.expenseIds || [],
+          createdAt: new Date().toISOString(),
+        };
+
+        await addDoc(
+          collection(db, TABLE_NAME, user.uid, "payPeriodBankAccounts"),
+          payPeriodAccount
+        );
+      }
+
+      await this.getPayPeriodBankAccounts(payPeriodId);
+      return true;
+    } catch (error) {
+      console.error("Error updating pay period bank accounts:", error);
+      return false;
+    }
+  }
+
+  findPayPeriodBankAccountById(
+    compositeId: string
+  ): PayPeriodBankAccount | null {
+    const { payPeriodBankAccounts } = this.getState();
+    return (
+      payPeriodBankAccounts?.find(
+        (account) => account.compositeId === compositeId
+      ) || null
+    );
+  }
+
+  async deletePayPeriodBankAccount(payPeriodAccountId: string) {
+    const user = this.getState().user;
+    if (!user) {
+      console.error("No authenticated user found");
+      return false;
+    }
+
+    try {
+      await deleteDoc(
+        doc(
+          db,
+          TABLE_NAME,
+          user.uid,
+          "payPeriodBankAccounts",
+          payPeriodAccountId
+        )
+      );
+
+      // Update local state
+      this.setState(({ payPeriodBankAccounts }) => ({
+        payPeriodBankAccounts: (payPeriodBankAccounts || []).filter(
+          (account: PayPeriodBankAccount) => account.id !== payPeriodAccountId
+        ),
+      }));
+
+      return true;
+    } catch (error) {
+      console.error("Error deleting pay period bank account:", error);
+      return false;
+    }
+  }
+
+  // PAY PERIOD EXPENSE FUNCTIONS
   private calculateDueDateForPayPeriod(
     masterExpense: Expense,
     payPeriodStart: string
   ): string {
-    // Use the current next due date as the starting point, not the original due date
     const startDate = masterExpense.nextDueDate || masterExpense.dueDate;
 
-    // For one-time expenses, return the current due date
     if (masterExpense.frequency === "one-time") {
       return startDate;
     }
 
-    console.log("Calculating due date for pay period:", {
-      payPeriodStart,
-      startDate,
-      frequency: masterExpense.frequency,
-    });
-
-    // Use the helper function to find the next due date after the pay period start
     const nextDueDate = findNextDueDate(
       startDate,
       masterExpense.frequency,
       new Date(payPeriodStart)
     );
 
-    console.log("findNextDueDate result:", {
-      startDate,
-      frequency: masterExpense.frequency,
-      payPeriodStart,
-      nextDueDate,
-    });
     return nextDueDate || startDate;
   }
 
-  // PAY PERIOD EXPENSE FUNCTIONS
   async assignExpensesToPayPeriod(payPeriodId: string) {
     const user = this.getState().user;
     const masterExpenses = this.getState().masterExpenses || [];
@@ -1483,16 +1261,14 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
       const payPeriodExpenses: PayPeriodExpense[] = [];
 
       for (const masterExpense of masterExpenses) {
-        // Check if expense falls within this pay period based on frequency
         if (this.shouldExpenseBeInPayPeriod(masterExpense, payPeriod)) {
-          // Calculate the next due date specifically for this pay period
           const nextDueDateForPeriod = this.calculateDueDateForPayPeriod(
             masterExpense,
             payPeriod.startDate
           );
 
-          const periodExpense: PayPeriodExpense = {
-            id: `${payPeriodId}-${masterExpense.id}`,
+          const periodExpense: PayPeriodExpenseCreate = {
+            compositeId: `${payPeriodId}-${masterExpense.id}`,
             payPeriodId,
             masterExpenseId: masterExpense.id,
             name: masterExpense.name,
@@ -1504,12 +1280,18 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
             createdAt: new Date().toISOString(),
           };
 
-          await addDoc(
+          const docRef = await addDoc(
             collection(db, TABLE_NAME, user.uid, "payPeriodExpenses"),
             periodExpense
           );
 
-          payPeriodExpenses.push(periodExpense);
+          // Update the object with the actual Firestore document ID
+          const periodExpenseWithId: PayPeriodExpense = {
+            ...periodExpense,
+            id: docRef.id,
+          };
+
+          payPeriodExpenses.push(periodExpenseWithId);
         }
       }
 
@@ -1532,19 +1314,15 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
     const periodStart = new Date(payPeriod.startDate);
     const periodEnd = new Date(payPeriod.endDate);
 
-    // For one-time expenses, check if due date falls within period
     if (expense.frequency === "one-time") {
       return expenseDate >= periodStart && expenseDate <= periodEnd;
     }
 
-    // For recurring expenses, calculate the next due date for this pay period
     const nextDueDateForPeriod = this.calculateDueDateForPayPeriod(
       expense,
       payPeriod.startDate
     );
-    const nextDueDate = new Date(nextDueDateForPeriod);
 
-    // Normalize dates to local timezone for comparison
     const nextDueDateParts = nextDueDateForPeriod.split("-");
     const periodStartParts = payPeriod.startDate.split("T")[0].split("-");
     const periodEndParts = payPeriod.endDate.split("T")[0].split("-");
@@ -1565,27 +1343,6 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
       parseInt(periodEndParts[2])
     );
 
-    console.log("shouldExpenseBeInPayPeriod check:", {
-      expenseName: expense.name,
-      expenseDueDate: expense.dueDate,
-      calculatedNextDueDate: nextDueDateForPeriod,
-      periodStart: payPeriod.startDate,
-      periodEnd: payPeriod.endDate,
-      nextDueDateObj: nextDueDate.toISOString(),
-      periodStartObj: periodStart.toISOString(),
-      periodEndObj: periodEnd.toISOString(),
-      normalizedNextDueDate: normalizedNextDueDate.toDateString(),
-      normalizedPeriodStart: normalizedPeriodStart.toDateString(),
-      normalizedPeriodEnd: normalizedPeriodEnd.toDateString(),
-      nextDueDateTime: normalizedNextDueDate.getTime(),
-      periodStartTime: normalizedPeriodStart.getTime(),
-      periodEndTime: normalizedPeriodEnd.getTime(),
-      isInPeriod:
-        normalizedNextDueDate >= normalizedPeriodStart &&
-        normalizedNextDueDate <= normalizedPeriodEnd,
-    });
-
-    // Check if the calculated due date falls within this pay period (using normalized dates)
     return (
       normalizedNextDueDate >= normalizedPeriodStart &&
       normalizedNextDueDate <= normalizedPeriodEnd
@@ -1596,11 +1353,6 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
     const user = this.getState().user;
     const payPeriods = this.getState().payPeriods || [];
 
-    console.log("Updating all pay periods with new master data", {
-      user: user?.uid,
-      payPeriodCount: payPeriods.length,
-    });
-
     if (!user) {
       console.error("No authenticated user found");
       return false;
@@ -1608,63 +1360,14 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
 
     try {
       for (const payPeriod of payPeriods) {
-        // Update pay period bank accounts if new master bank accounts exist
         await this.updatePayPeriodBankAccounts(payPeriod.id);
 
-        // Update pay period expenses if new master expenses exist
         await this.updatePayPeriodExpenses(payPeriod.id);
       }
 
       return true;
     } catch (error) {
       console.error("Error updating all pay periods:", error);
-      return false;
-    }
-  }
-
-  async updatePayPeriodBankAccounts(payPeriodId: string) {
-    const user = this.getState().user;
-    const masterBankAccounts = this.getState().masterBankAccounts || [];
-
-    if (!user) return false;
-
-    try {
-      // Get existing pay period bank accounts
-      const existingAccounts = await this.getPayPeriodBankAccounts(payPeriodId);
-
-      // Find master bank accounts that don't have corresponding pay period accounts
-      const existingMasterIds = existingAccounts.map(
-        (acc) => acc.masterBankAccountId
-      );
-      const newMasterAccounts = masterBankAccounts.filter(
-        (master) => !existingMasterIds.includes(master.id)
-      );
-
-      // Create pay period accounts for new master accounts
-      for (const masterAccount of newMasterAccounts) {
-        const payPeriodAccount: PayPeriodBankAccount = {
-          id: `${payPeriodId}-${masterAccount.id}`,
-          payPeriodId,
-          masterBankAccountId: masterAccount.id,
-          name: masterAccount.name,
-          color: masterAccount.color,
-          startingBalance: masterAccount.startingBalance,
-          currentBalance: masterAccount.startingBalance,
-          expenseIds: masterAccount.expenseIds || [],
-          createdAt: new Date().toISOString(),
-        };
-
-        await addDoc(
-          collection(db, TABLE_NAME, user.uid, "payPeriodBankAccounts"),
-          payPeriodAccount
-        );
-      }
-
-      // Refresh the pay period bank accounts
-      await this.getPayPeriodBankAccounts(payPeriodId);
-      return true;
-    } catch (error) {
-      console.error("Error updating pay period bank accounts:", error);
       return false;
     }
   }
@@ -1699,8 +1402,8 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
             payPeriod.startDate
           );
 
-          const periodExpense: PayPeriodExpense = {
-            id: `${payPeriodId}-${masterExpense.id}`,
+          const periodExpense: PayPeriodExpenseCreate = {
+            compositeId: `${payPeriodId}-${masterExpense.id}`,
             payPeriodId,
             masterExpenseId: masterExpense.id,
             name: masterExpense.name,
@@ -1753,6 +1456,86 @@ export class CalculatorStore extends baseModel<CalculatorState>() {
     } catch (error) {
       console.error("Error getting pay period expenses:", error);
       return [];
+    }
+  }
+
+  // Helper function to find PayPeriodExpense by composite ID
+  findPayPeriodExpenseByCompositeId(
+    compositeId: string
+  ): PayPeriodExpense | null {
+    const { payPeriodExpenses } = this.getState();
+    return (
+      payPeriodExpenses?.find(
+        (expense) => expense.compositeId === compositeId
+      ) || null
+    );
+  }
+
+  async updatePaidStatus(compositeId: string, isPaid: boolean) {
+    const user = this.getState().user;
+    if (!user) {
+      console.error("No authenticated user found");
+      return false;
+    }
+
+    // Find the PayPeriodExpense to get the actual Firestore document ID
+    const payPeriodExpense =
+      this.findPayPeriodExpenseByCompositeId(compositeId);
+    if (!payPeriodExpense) {
+      console.error(
+        "PayPeriodExpense not found for composite ID:",
+        compositeId
+      );
+      return false;
+    }
+
+    try {
+      const docRef = doc(
+        db,
+        TABLE_NAME,
+        user.uid,
+        "payPeriodExpenses",
+        payPeriodExpense.id
+      );
+      await updateDoc(docRef, { isPaid });
+
+      // Update local state
+      const currentExpenses = this.getState().payPeriodExpenses || [];
+      const updatedExpenses = currentExpenses.map((expense) =>
+        expense.id === payPeriodExpense.id ? { ...expense, isPaid } : expense
+      );
+      this.setState(() => ({ payPeriodExpenses: updatedExpenses }));
+
+      return true;
+    } catch (error) {
+      console.error("Error updating paid status:", error);
+      return false;
+    }
+  }
+
+  async deletePayPeriodExpense(payPeriodExpenseId: string) {
+    const user = this.getState().user;
+    if (!user) {
+      console.error("No authenticated user found");
+      return false;
+    }
+
+    try {
+      await deleteDoc(
+        doc(db, TABLE_NAME, user.uid, "payPeriodExpenses", payPeriodExpenseId)
+      );
+
+      // Update local state
+      this.setState(({ payPeriodExpenses }) => ({
+        payPeriodExpenses: (payPeriodExpenses || []).filter(
+          (expense: PayPeriodExpense) => expense.id !== payPeriodExpenseId
+        ),
+      }));
+
+      return true;
+    } catch (error) {
+      console.error("Error deleting pay period expense:", error);
+      return false;
     }
   }
 }

@@ -10,51 +10,36 @@ export const formatDate = (dateString: string) => {
 export const findNextDueDate = (
   dueDate: string,
   frequency: "monthly" | "bi-weekly" | "every 30 days" | "one-time",
-  baseDate: Date | undefined,
+  baseDate: Date | undefined
 ): string | null => {
   const date = new Date(dueDate + "T00:00:00");
   if (!baseDate) {
     baseDate = new Date();
   }
-  baseDate.setHours(0, 0, 0, 0); // Set to midnight for accurate comparison
-  console.log("baseDate:", baseDate);
-  // If it's a one-time expense, return the original date
+  baseDate.setHours(0, 0, 0, 0);
   if (frequency === "one-time") {
     return dueDate;
   }
-  
-  const nextDate = new Date(date);
-  console.log("Starting with date:", nextDate.toISOString());
-  console.log("Base date:", baseDate.toISOString());
 
-  // Find the next occurrence after today
+  const nextDate = new Date(date);
   while (nextDate <= baseDate) {
-    console.log("Checking if", nextDate.toISOString(), "is before or equal to", baseDate.toISOString());
-    console.log("Current nextDate:", nextDate.toDateString(), "Base date:", baseDate.toDateString());
-        if (nextDate.toDateString() === baseDate.toDateString()) {
+    if (nextDate.toDateString() === baseDate.toDateString()) {
       break;
     }
     switch (frequency) {
       case "monthly":
-        // Add 1 month (handles month rollover automatically)
         nextDate.setMonth(nextDate.getMonth() + 1);
         break;
 
       case "bi-weekly":
-        // Add 14 days
         nextDate.setDate(nextDate.getDate() + 14);
         break;
 
       case "every 30 days":
-        // Add 30 days
         nextDate.setDate(nextDate.getDate() + 30);
         break;
     }
-    console.log("After incrementing, date is:", nextDate.toISOString());
-
   }
-  // Convert back to YYYY-MM-DD format
-  console.log("Final date:", nextDate.toISOString().split("T")[0]);
   return nextDate.toISOString().split("T")[0];
 };
 

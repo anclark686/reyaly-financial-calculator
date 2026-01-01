@@ -1,8 +1,8 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -16,7 +16,7 @@ const firebaseConfig = {
   storageBucket: "reyaly-financial-calculator.firebasestorage.app",
   messagingSenderId: "936897479980",
   appId: "1:936897479980:web:51449ee781f334f6be9889",
-  measurementId: "G-BD03SEY9J7"
+  measurementId: "G-BD03SEY9J7",
 };
 
 // Initialize Firebase
@@ -27,8 +27,7 @@ export const auth = getAuth(app);
 export const analytics = getAnalytics(app);
 
 // Enable auth persistence
-import { setPersistence, browserLocalPersistence } from 'firebase/auth';
-setPersistence(auth, browserLocalPersistence)
-  .catch((error) => {
-    console.error("Error setting auth persistence:", error);
-  });
+import { setPersistence, browserLocalPersistence } from "firebase/auth";
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error("Error setting auth persistence:", error);
+});

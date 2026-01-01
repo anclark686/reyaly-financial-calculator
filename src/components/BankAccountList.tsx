@@ -59,6 +59,8 @@ function BankAccountList({ store, master }: MainComponentProps) {
   };
 
   const handleViewExpenses = () => {
+    console.log("Pay period account ID:", selectedAccountId);
+    console.log("Pay period bank accounts:", payPeriodBankAccounts);
     if (selectedAccountId) {
       if (master) {
         const account = masterBankAccounts?.find(
@@ -83,7 +85,11 @@ function BankAccountList({ store, master }: MainComponentProps) {
 
   const handleDeleteBankAccount = () => {
     if (selectedAccountId) {
-      store.deleteBankAccount(selectedAccountId);
+      if (master) {
+        store.deleteBankAccount(selectedAccountId);
+      } else {
+        store.deletePayPeriodBankAccount(selectedAccountId);
+      }
     }
     handleMenuClose();
   };
@@ -185,7 +191,9 @@ function BankAccountList({ store, master }: MainComponentProps) {
           <MenuItem onClick={handleViewExpenses}>View Expenses</MenuItem>
         )}
         <MenuItem onClick={handleDeleteBankAccount}>Delete Account</MenuItem>
-        <MenuItem onClick={handleEditBankAccount}>Edit Account</MenuItem>
+        {master && (
+          <MenuItem onClick={handleEditBankAccount}>Edit Account</MenuItem>
+        )}
       </Menu>
 
       {master && (

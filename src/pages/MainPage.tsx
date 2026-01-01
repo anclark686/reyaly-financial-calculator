@@ -18,13 +18,13 @@ const BtnContainer = styled.div`
 
 function MainPage({ store }: { store: CalculatorStore }) {
   const [editMasterData, setEditMasterData] = useState(false);
-  const { 
-    user, 
-    masterExpenses, 
-    masterBankAccounts, 
-    payPeriodExpenses, 
+  const {
+    user,
+    masterExpenses,
+    masterBankAccounts,
+    payPeriodExpenses,
     payPeriodBankAccounts,
-    payInfo 
+    payInfo,
   } = store.getState();
 
   // Show loading while user data is being fetched
@@ -45,14 +45,22 @@ function MainPage({ store }: { store: CalculatorStore }) {
   return (
     <div>
       <h1>Reyaly Financial Calculator</h1>
-      <PayInfo store={store} master={editMasterData}/>
+      <PayInfo store={store} master={editMasterData} />
       <ExpenseList store={store} master={editMasterData} />
       <BankAccountList store={store} master={editMasterData} />
       <BtnContainer>
-        <Button variant="contained" color="secondary" onClick={() => setEditMasterData(!editMasterData)}>
-          {editMasterData ? 'Done Editing' : 'Edit Master Data'}
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={() => setEditMasterData(!editMasterData)}
+        >
+          {editMasterData ? "Done Editing" : "Edit Master Data"}
         </Button>
-        <Button variant="contained" color="secondary" onClick={() => store.logoutUser()}>
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={() => store.logoutUser()}
+        >
           Logout
         </Button>
       </BtnContainer>

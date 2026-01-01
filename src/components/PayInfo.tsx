@@ -39,14 +39,12 @@ const DateContainer = styled.div`
   gap: 1rem;
 `;
 
-
 const InfoContainer = styled.div`
   display: flex;
   gap: 0.5rem;
   margin: 0.5rem;
   justify-content: center;
 `;
-
 
 function PayInfo({ store, master }: MainComponentProps) {
   const { payInfo } = store.getState();
@@ -60,18 +58,17 @@ function PayInfo({ store, master }: MainComponentProps) {
   >(payInfo?.payFrequency || "bi-weekly");
 
   const handleSave = async () => {
-    console.log("Save clicked with:", { takeHome, startDate, frequency });
     if (!takeHome || !startDate) {
       alert("Missing required fields");
       return;
     }
-    
+
     const success = await store.saveUserPayInfo({
       takeHomePay: parseFloat(takeHome),
       startDate,
       payFrequency: frequency,
     });
-    
+
     if (success) {
       setEditing(false);
     } else {
@@ -99,53 +96,59 @@ function PayInfo({ store, master }: MainComponentProps) {
 
           {!editing && (
             <>
-            {master ? (
-              <InfoContainer>
-              <Typography variant="body1" color="text.secondary">
-                <strong>Take Home: </strong>${payInfo?.takeHomePay?.toFixed(2) || "0.00"}
-              </Typography>
-              <Typography variant="body1" color="text.secondary"> | </Typography>
-              <Typography variant="body1" color="text.secondary">
-                <strong>Frequency: </strong>{payInfo?.payFrequency || "bi-weekly"}
-              </Typography>
-              <Typography variant="body1" color="text.secondary"> | </Typography>
-              <Typography variant="body1" color="text.secondary">
-                <strong>Start Date: </strong>{payInfo?.startDate || "N/A"}
-              </Typography>
-            </InfoContainer>
-            ) : (
-              <InfoContainer>
-              <Typography variant="body1" color="text.secondary">
-                <strong>Take Home: </strong>${payInfo?.takeHomePay?.toFixed(2) || "0.00"}
-              </Typography>
-            </InfoContainer>
-            )}
+              {master ? (
+                <InfoContainer>
+                  <Typography variant="body1" color="text.secondary">
+                    <strong>Take Home: </strong>$
+                    {payInfo?.takeHomePay?.toFixed(2) || "0.00"}
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    {" "}
+                    |{" "}
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    <strong>Frequency: </strong>
+                    {payInfo?.payFrequency || "bi-weekly"}
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    {" "}
+                    |{" "}
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    <strong>Start Date: </strong>
+                    {payInfo?.startDate || "N/A"}
+                  </Typography>
+                </InfoContainer>
+              ) : (
+                <InfoContainer>
+                  <Typography variant="body1" color="text.secondary">
+                    <strong>Take Home: </strong>$
+                    {payInfo?.takeHomePay?.toFixed(2) || "0.00"}
+                  </Typography>
+                </InfoContainer>
+              )}
             </>
           )}
 
           {!master && (
             <DateContainer>
-            <IconButton
-              onClick={() => store.onDateChange("previous")}
-            >
-              <ChevronLeft />
-            </IconButton>
+              <IconButton onClick={() => store.onDateChange("previous")}>
+                <ChevronLeft />
+              </IconButton>
 
-            <Typography
-              variant="body1"
-              style={{ minWidth: "150px", textAlign: "center" }}
-            >
-              {store.getCurrentPayPeriodDisplay()}
-            </Typography>
+              <Typography
+                variant="body1"
+                style={{ minWidth: "150px", textAlign: "center" }}
+              >
+                {store.getCurrentPayPeriodDisplay()}
+              </Typography>
 
-            <IconButton
-              onClick={() => store.onDateChange("next")}
-            >
-              <ChevronRight />
-            </IconButton>
-          </DateContainer>
+              <IconButton onClick={() => store.onDateChange("next")}>
+                <ChevronRight />
+              </IconButton>
+            </DateContainer>
           )}
-          
+
           {editing && master && (
             <div>
               <InputContainer>

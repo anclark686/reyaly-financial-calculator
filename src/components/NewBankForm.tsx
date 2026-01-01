@@ -32,12 +32,14 @@ function NewBankForm({ store }: { store: CalculatorStore }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name || startingBalance === undefined || startingBalance < 0) {
-      alert("Please enter a valid account name and starting balance (must be positive)");
+      alert(
+        "Please enter a valid account name and starting balance (must be positive)"
+      );
       return;
     }
-    
+
     const bankAccountData = {
       name,
       startingBalance: parseFloat(startingBalance.toString()),

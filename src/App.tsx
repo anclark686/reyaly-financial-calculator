@@ -13,18 +13,18 @@ function App() {
     confirmPassword: "",
     user: null,
     loginError: null,
-    
+
     // Master data (global across all periods)
     masterBankAccounts: null,
     masterExpenses: null,
     payInfo: null,
-    
+
     // Period-specific data
     payPeriods: null,
     currentPayPeriod: null,
     payPeriodBankAccounts: null,
     payPeriodExpenses: null,
-    
+
     // UI state
     selectedBankAccount: null,
     selectedExpense: null,
@@ -32,7 +32,7 @@ function App() {
     selectedPayPeriodExpense: null,
     newBankAccountFormOpen: false,
     newExpenseFormOpen: false,
-    
+
     // Loading states
     loading: false,
     payPeriodLoading: false,

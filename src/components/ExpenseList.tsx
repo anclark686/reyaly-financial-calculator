@@ -11,6 +11,7 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
+import Checkbox from "@mui/material/Checkbox";
 import Tooltip from "@mui/material/Tooltip";
 import { MoreHoriz, AccountBalance } from "@mui/icons-material";
 import styled from "@emotion/styled";
@@ -44,7 +45,9 @@ function ExpenseList({ store, master }: MainComponentProps) {
     null
   );
 
-  const expenseArray = master ? masterExpenses?.filter((expense) => expense.frequency !== 'one-time') : payPeriodExpenses;
+  const expenseArray = master
+    ? masterExpenses?.filter((expense) => expense.frequency !== "one-time")
+    : payPeriodExpenses;
 
   const getDisplayDate = (expense: Expense | PayPeriodExpense) => {
     if (master) {
@@ -52,11 +55,7 @@ function ExpenseList({ store, master }: MainComponentProps) {
       return formatDate(masterExpense.nextDueDate || masterExpense.dueDate);
     } else {
       const payPeriodExpense = expense as PayPeriodExpense;
-      console.log("Pay period expense:", payPeriodExpense);
-      console.log(
-        "Pay period expense nextDueDate:",
-        payPeriodExpense.nextDueDate
-      );
+
       return formatDate(payPeriodExpense.nextDueDate);
     }
   };
@@ -76,7 +75,11 @@ function ExpenseList({ store, master }: MainComponentProps) {
 
   const handleDeleteExpense = () => {
     if (selectedExpenseId) {
-      store.deleteExpense(selectedExpenseId);
+      if (master) {
+        store.deleteExpense(selectedExpenseId);
+      } else {
+        store.deletePayPeriodExpense(selectedExpenseId);
+      }
     }
     handleMenuClose();
   };
@@ -104,6 +107,17 @@ function ExpenseList({ store, master }: MainComponentProps) {
     handleMenuClose();
   };
 
+  const handlePaidToggle = (
+    expense: Expense | PayPeriodExpense,
+    isPaid: boolean
+  ) => {
+    // For PayPeriodExpense, use compositeId; for Expense, use regular id
+    const expenseId =
+      "compositeId" in expense ? expense.compositeId : expense.id;
+    store.updatePaidStatus(expenseId, isPaid);
+    console.log("Toggle paid status for expense:", expenseId, "to", isPaid);
+  };
+
   return (
     <div className="expense-list">
       <TableContainer component={Paper}>
@@ -114,7 +128,12 @@ function ExpenseList({ store, master }: MainComponentProps) {
               <TableCell>Amount</TableCell>
               <TableCell>Next Due Date</TableCell>
               {master && <TableCell>Frequency</TableCell>}
-              {!master && <TableCell>Accounted For</TableCell>}
+              {!master && (
+                <>
+                  <TableCell>Accounted For</TableCell>
+                  <TableCell>Is Paid</TableCell>
+                </>
+              )}
               <TableCell>Actions</TableCell>
             </HeaderRow>
           </TableHead>
@@ -147,31 +166,42 @@ function ExpenseList({ store, master }: MainComponentProps) {
                       <TableCell>{getDisplayDate(expense)}</TableCell>
                       {master && <TableCell>{expense.frequency}</TableCell>}
                       {!master && (
-                        <TableCell>
-                          {isAccountedFor ? (
-                            <Tooltip
-                              title={`Assigned to: ${assignedAccounts
-                                .map((acc) => acc.name)
-                                .join(", ")}`}
-                              arrow
-                            >
+                        <>
+                          <TableCell>
+                            {isAccountedFor ? (
+                              <Tooltip
+                                title={`Assigned to: ${assignedAccounts
+                                  .map((acc) => acc.name)
+                                  .join(", ")}`}
+                                arrow
+                              >
+                                <Chip
+                                  icon={<AccountBalance />}
+                                  label={`${assignedAccounts.length} Account`}
+                                  color="success"
+                                  size="small"
+                                  variant="outlined"
+                                />
+                              </Tooltip>
+                            ) : (
                               <Chip
-                                icon={<AccountBalance />}
-                                label={`${assignedAccounts.length} Account(s)`}
-                                color="success"
+                                label="Unassigned"
+                                color="default"
                                 size="small"
                                 variant="outlined"
                               />
-                            </Tooltip>
-                          ) : (
-                            <Chip
-                              label="Unassigned"
-                              color="default"
-                              size="small"
-                              variant="outlined"
+                            )}
+                          </TableCell>
+
+                          <TableCell>
+                            <Checkbox
+                              checked={expense.isPaid}
+                              onChange={() =>
+                                handlePaidToggle(expense, !expense.isPaid)
+                              }
                             />
-                          )}
-                        </TableCell>
+                          </TableCell>
+                        </>
                       )}
                       <TableCell>
                         <IconButton
